@@ -48,7 +48,7 @@ def manualattention(q, k, v, maskmod, scale=None):
     mask = torch.where(maskbool, 0.0, float('-inf'))
 
     # 2. QK^T / sqrt(d)
-    attnscores = torch.matmul(q, k.transpose(-2, -1))  scale  # [B, H, S, S]
+    attnscores = torch.matmul(q, k.transpose(-2, -1)) * scale  # [B, H, S, S]
 
     # 3. 加上 mask
     attnscores = attnscores + mask.unsqueeze(0).unsqueeze(0)  # broadcast
@@ -83,16 +83,16 @@ class TestFlexAttention(InductorTestCase):
         # --- Flex Attention 版本 ---
         compiledsdpa = torch.compile(sdpafn, backend="inductor", dynamic=True)
         # Warmup
-        for  in range(10):
+        for _ in range(10):
             compiledsdpa(q, k, v)
         torch.npu.synchronize()
 
         numrepeat = 10
         starttime = time.time()
-        for  in range(numrepeat):
+        for _ in range(numrepeat):
             outputflex = compiledsdpa(q, k, v)
         torch.npu.synchronize()
-        avgms = ((time.time() - starttime) / numrepeat)  1000
+        avgms = ((time.time() - starttime) / numrepeat) * 1000
         print(f"B:{B} H:{H} S:{S} D:{D} | Flex Attention 耗时: {avgms:.3f} ms")
 
         # --- 小算子拼接版本 (正确性对比) ---
@@ -113,10 +113,10 @@ class TestFlexAttention(InductorTestCase):
         # 使用相同的 q,k,v 进行手动计算
         starttime2 = time.time()
         with torch.nograd():
-            for  in range(numrepeat):
+            for _ in range(numrepeat):
                 outputmanual = manualattention(q, k, v, maskmod)
         torch.npu.synchronize()
-        avgms2 = ((time.time() - starttime2) / numrepeat)  1000
+        avgms2 = ((time.time() - starttime2) / numrepeat) * 1000
         print(f"B:{B} H:{H} S:{S} D:{D} | 手动拼接小算子耗时: {avgms2:.3f} ms")
 
         # 正确性验证
