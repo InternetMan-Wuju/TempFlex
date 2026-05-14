@@ -69,6 +69,92 @@ class TestFlexAttention(InductorTestCase):
         super().setUp()
         self.device = test_device
     
+    def detailed_compare(self, output_flex, output_manual, rtol, atol, topk=10, name_flex="Flex", name_manual="Manual"):
+        # output shape: [B, H, S, D]
+        eps = 1e-6
+        diff = output_flex - output_manual
+        absdiff = diff.abs()
+        max_abs_t = absdiff.max()          # tensor scalar
+        max_abs = max_abs_t.item()        # 你的 max_abs（item）
+        # 找到 max_abs 对应的下标 (b,h,s,d)
+        flat_idx = absdiff.view(-1).argmax()  # tensor scalar
+        b, h, s, d = torch.unravel_index(flat_idx, absdiff.shape)
+
+        # 取对应下标处的 flex/manual 值
+        flex_val = output_flex[b, h, s, d]
+        manual_val = output_manual[b, h, s, d]
+
+        denom = (flex_val + manual_val) / 2
+        pct = max_abs / (denom.item() + eps) * 100
+        max_rel_pct = abs(pct)
+
+
+        mean_abs = absdiff.mean().item()
+        median_abs = absdiff.median().item()
+
+        # element-wise allclose 判定的失败掩码
+        # torch.allclose 的等价条件近似为：
+        # abs(x - y) <= atol + rtol * abs(y)
+        threshold = atol + rtol * output_manual.abs()
+        fail_mask = absdiff > threshold
+        num_fail = int(fail_mask.sum().item())
+        total = output_manual.numel()
+        fail_ratio = num_fail / total
+
+        # NaN/Inf 检查（非常关键）
+        any_nan_flex = torch.isnan(output_flex).any().item()
+        any_inf_flex = torch.isinf(output_flex).any().item()
+        any_nan_manual = torch.isnan(output_manual).any().item()
+        any_inf_manual = torch.isinf(output_manual).any().item()
+
+        print("-------- 差异统计 --------")
+        print(f"{name_flex} dtype={output_flex.dtype}, {name_manual} dtype={output_manual.dtype}")
+        print(f"any_nan_flex={any_nan_flex}, any_inf_flex={any_inf_flex}, any_nan_manual={any_nan_manual}, any_inf_manual={any_inf_manual}")
+        print(f"max_abs_diff={max_abs:.6g}->({max_rel_pct:.6g}%),mean_abs_diff={mean_abs:.6g}, median_abs_diff={median_abs:.6g}")
+
+        print(f"fail_ratio={fail_ratio*100:.4f}%  (num_fail={num_fail}/{total})")
+        print("--------------------------")
+
+        # 取 topk 最大绝对差异的位置，打印具体下标和两边数值
+        if topk is not None and topk > 0:
+            flat_abs = absdiff.flatten()
+            k = min(topk, flat_abs.numel())
+            vals, idxs = torch.topk(flat_abs, k)
+
+            B, H, S, D = output_manual.shape
+            if max_rel_pct > 5.0:
+                print(f"⚠️ 警告：最大误差超过5%，以下是 top{topk} 的详细对比：")
+                for t in range(k):
+                    flat_idx = idxs[t].item()
+                    d_idx = flat_idx % D
+                    tmp = flat_idx // D
+                    s_idx = tmp % S
+                    tmp = tmp // S
+                    h_idx = tmp % H
+                    b_idx = tmp // H
+
+                    fv = output_flex[b_idx, h_idx, s_idx, d_idx].item()
+                    mv = output_manual[b_idx, h_idx, s_idx, d_idx].item()
+                    av = vals[t].item()
+                    rv = av / max(abs(mv), eps)
+
+                    print(
+                        f"top{t}: absdiff={av:.6g}, rel={rv:.6g} "
+                        f"@ (b={b_idx}, h={h_idx}, s={s_idx}, d={d_idx}) "
+                        f"{name_flex}={fv:.6g}, {name_manual}={mv:.6g}"
+                    )
+
+        # 返回一个结果方便你判断
+        return {
+            "max_abs_diff": max_abs,
+            "max_rel_diff": max_rel_pct,
+            "fail_ratio": fail_ratio,
+            "num_fail": num_fail,
+            "any_nan_flex": any_nan_flex,
+            "any_inf_flex": any_inf_flex,
+            "any_nan_manual": any_nan_manual,
+            "any_inf_manual": any_inf_manual,
+        }
     def rundynamictest(self, score_mask_mod, dtype):
         score_mod, mask_mod = score_mask_mod
         # cu_seqlens 可以忽略，这里只用于兼容
@@ -147,33 +233,31 @@ class TestFlexAttention(InductorTestCase):
         try:
             rtollocal = rtol
             atollocal = atol
+
             print(f"rtollocal={rtollocal}")
             print(f"atollocal={atollocal}")
-            if torch.allclose(output_flex, output_manual, rtol=rtollocal, atol=atollocal):
-                print("✅测试通过")
-                # 打印差异
-                diff = torch.abs(output_flex - output_manual)
-                maxdiff = torch.max(diff)
-                meandiff = torch.mean(diff)
 
-                print(f"最大差异值: {maxdiff}")
-                print(f"平均差异值: {meandiff}")
+            close = torch.allclose(output_flex, output_manual, rtol=rtollocal, atol=atollocal)
+
+            # 无论 pass/fail，都建议做一次“诊断统计”（你会更快定位原因）
+            stats = self.detailed_compare(
+                output_flex, output_manual,
+                rtol=rtollocal, atol=atollocal,
+                topk=10
+            )
+
+            # pass 时也可以加一个“相对误差很大但绝对误差不大”的警告
+            # 比如 max_rel_diff > 0.5 或 1.0 这种（你可按需求调整）
+            if close:
+                print("✅测试通过（allclose 为 True）")
+                return output_flex, output_manual
             else:
-                # 打印差异较大的位置
                 print("❌测试fail")
                 return output_flex, output_manual
+
         except Exception as e:
             print(f"比较过程中出现错误: {e}")
             return output_flex, output_manual
-
-
-        # if torch.allclose(output_flex, output_manual, rtol=rtol, atol=atol):
-        #     print("✅ 正确性验证通过：两者输出基本一致。")
-        # else:
-        #     maxdiff = (output_flex - output_manual).abs().max().item()
-        #     print(f"❌ 正确性验证失败：最大绝对误差 = {maxdiff:.6f}")
-        #     # 打印一些统计信息
-        #     print(f"   Flex mean: {output_flex.mean().item():.6f}, Manual mean: {output_manual.mean().item():.6f}")
 
         return output_flex, output_manual
 
