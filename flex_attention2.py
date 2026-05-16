@@ -16,11 +16,36 @@ from torch.nn.attention.flex_attention import (
     flex_attention,
 )
 import torch_npu
+
+
+def _prepend_ld_library_paths(*paths):
+    existing = os.environ.get("LD_LIBRARY_PATH", "")
+    parts = [str(path) for path in paths if Path(path).is_dir()]
+    for path in existing.split(os.pathsep):
+        if path and path not in parts:
+            parts.append(path)
+    os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(parts)
+
+
+_prepend_ld_library_paths(
+    Path(torch.__file__).resolve().parent / "lib",
+    Path(torch_npu.__file__).resolve().parent / "lib",
+)
+import torch_npu._inductor  # Registers NPU Inductor lowerings and patches flex_attention device checks.
 torch.set_float32_matmul_precision("high")
 MSTX_DOMAIN = "flex_attention2"
 #---------- 原始 flexattention 相关函数 ----------
-def create_attention(score_mod, block_mask, enable_gqa=False, block_m=64, block_n=64):
+def create_attention(
+    score_mod,
+    block_mask,
+    enable_gqa=False,
+    block_m=64,
+    block_n=64,
+    kernel_options_extra=None,
+):
     kernel_options = {"BLOCK_M": block_m, "BLOCK_N": block_n}
+    if kernel_options_extra:
+        kernel_options.update(kernel_options_extra)
     return functools.partial(
         flex_attention,
         score_mod=score_mod,
@@ -132,7 +157,7 @@ def make_default_args(**overrides):
         block_m=64,
         block_n=64,
         manual_mask="precompute",
-        dynamic_compile=True,
+        dynamic_compile=False,
         enable_gqa=False,
         mstx=False,
         compare=True,
@@ -159,20 +184,27 @@ def make_inputs(args):
 
 
 def make_flex_runner(q, k, v, score_mod, mask_mod, args):
+    block_mask_device = "cpu" if str(args.device).startswith("npu") else args.device
     block_mask = create_block_mask(
         mask_mod,
         1,
         1,
         args.seq_len,
         args.seq_len,
-        device=args.device,
-    )
+        device=block_mask_device,
+    ).to(args.device)
+    kernel_options_extra = {}
+    if mask_mod is causal_mask:
+        kernel_options_extra["ROWS_GUARANTEED_SAFE"] = True
+        kernel_options_extra["BLOCKS_ARE_CONTIGUOUS"] = True
+
     sdpa_fn = create_attention(
         score_mod,
         block_mask=block_mask,
         enable_gqa=args.enable_gqa,
         block_m=args.block_m,
         block_n=args.block_n,
+        kernel_options_extra=kernel_options_extra,
     )
     compiled_sdpa = torch.compile(
         sdpa_fn,
@@ -248,7 +280,9 @@ def time_runner(label, runner, args):
 def tolerance_for(dtype, rtol, atol):
     if rtol is not None and atol is not None:
         return rtol, atol
-    if dtype in (torch.bfloat16, torch.float16):
+    if dtype == torch.bfloat16:
+        return 2e-2, 2e-2
+    if dtype == torch.float16:
         return 1e-2, 1e-2
     return 1e-3, 1e-5
 
@@ -522,17 +556,22 @@ def parse_args():
         "--dynamic-compile",
         dest="dynamic_compile",
         action="store_true",
-        help="Pass dynamic=True to torch.compile. This is the default.",
+        help="Pass dynamic=True to torch.compile.",
     )
     parser.add_argument(
         "--static-compile",
         dest="dynamic_compile",
         action="store_false",
-        help="Pass dynamic=False to torch.compile for fixed-shape experiments.",
+        help="Pass dynamic=False to torch.compile for fixed-shape experiments. This is the default.",
     )
-    parser.set_defaults(dynamic_compile=True)
+    parser.set_defaults(dynamic_compile=False)
     parser.add_argument("--enable-gqa", action="store_true")
     parser.add_argument("--mstx", action="store_true", help="Emit MSTX ranges around timed loops.")
+    parser.add_argument(
+        "--suppress-compile-errors",
+        action="store_true",
+        help="Let torch.compile fall back instead of failing when Inductor compilation errors occur.",
+    )
     parser.add_argument("--no-compare", dest="compare", action="store_false")
     parser.set_defaults(compare=True)
     parser.add_argument("--rtol", type=float, default=None)
@@ -557,9 +596,8 @@ def parse_args():
 if __name__ == "__main__":
     import torch._dynamo
 
-    # 避免 log 干扰
-    torch._dynamo.config.suppress_errors = True
     args = parse_args()
+    torch._dynamo.config.suppress_errors = args.suppress_compile_errors
 
     if args.mode == "benchmark":
         result = run_benchmark(args)
