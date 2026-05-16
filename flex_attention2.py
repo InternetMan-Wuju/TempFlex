@@ -258,13 +258,29 @@ def detailed_compare(output_flex, output_manual, rtol, atol, topk=10):
     flex_f32 = output_flex.float()
     manual_f32 = output_manual.float()
     absdiff = (flex_f32 - manual_f32).abs()
-    max_abs = absdiff.max().item()
+
+
+    max_abs_t = absdiff.max()          # tensor scalar
+    max_abs = max_abs_t.item()        # 你的 max_abs（item）
+    # 找到 max_abs 对应的下标 (b,h,s,d)
+    flat_idx = absdiff.view(-1).argmax()  # tensor scalar
+    b, h, s, d = torch.unravel_index(flat_idx, absdiff.shape)
+
     mean_abs = absdiff.mean().item()
     median_abs = absdiff.median().item()
 
-    denom = torch.maximum(flex_f32.abs(), manual_f32.abs()).clamp_min(eps)
-    rel = absdiff / denom
-    max_rel = rel.max().item()
+    # 取对应下标处的 flex/manual 值
+    flex_val = output_flex[b, h, s, d]
+    manual_val = output_manual[b, h, s, d]
+
+    denom = (flex_val + manual_val) / 2
+    pct = max_abs / (denom.item() + eps) * 100
+    max_rel_pct = abs(pct)
+    #The max diff ratio : (a-b)/[(a+b)*2]
+    # print(f"Max abs diff at (b={b}, h={h}, s={s}, d={d}): "
+    #     f"flex={flex_val:.6g}, manual={manual_val:.6g}, "
+    #     f"abs_diff={max_abs:.6g}, rel_diff={max_rel_pct:.2f}%"
+    # )
 
     threshold = atol + rtol * manual_f32.abs()
     fail_mask = absdiff > threshold
@@ -285,40 +301,43 @@ def detailed_compare(output_flex, output_manual, rtol, atol, topk=10):
         f"Manual(nan={any_nan_manual}, inf={any_inf_manual})"
     )
     print(
-        f"max_abs_diff={max_abs:.6g}, max_rel_diff={max_rel * 100:.6g}%, "
+        f"max_abs_diff={max_abs:.6g}, max_rel_diff={max_rel_pct:.2f}%, "
         f"mean_abs_diff={mean_abs:.6g}, median_abs_diff={median_abs:.6g}"
     )
     print(f"fail_ratio={fail_ratio * 100:.4f}%  (num_fail={num_fail}/{total})")
     print("--------------------------")
 
-    if topk is not None and topk > 0 and (num_fail > 0 or max_rel > 0.05):
+    if topk is not None and topk > 0 and (num_fail > 0 or max_rel_pct > 0.05):
         flat_abs = absdiff.reshape(-1)
         k = min(topk, flat_abs.numel())
         vals, idxs = torch.topk(flat_abs, k)
         batch, heads, seq_len, head_dim = output_manual.shape
-        print(f"Top-{k} absolute differences:")
-        for i in range(k):
-            flat_idx = idxs[i].item()
-            d_idx = flat_idx % head_dim
-            tmp = flat_idx // head_dim
-            s_idx = tmp % seq_len
-            tmp = tmp // seq_len
-            h_idx = tmp % heads
-            b_idx = tmp // heads
+        
+        if max_rel_pct > 1:
+            print(f"The max diff ratio (a-b)/[(a+b)*2] bigger than 1% ")
+            print(f"Top-{k} absolute differences:")
+            for i in range(k):
+                flat_idx = idxs[i].item()
+                d_idx = flat_idx % head_dim
+                tmp = flat_idx // head_dim
+                s_idx = tmp % seq_len
+                tmp = tmp // seq_len
+                h_idx = tmp % heads
+                b_idx = tmp // heads
 
-            fv = flex_f32[b_idx, h_idx, s_idx, d_idx].item()
-            mv = manual_f32[b_idx, h_idx, s_idx, d_idx].item()
-            av = vals[i].item()
-            rv = av / max(abs(fv), abs(mv), eps)
-            print(
-                f"top{i}: absdiff={av:.6g}, rel={rv * 100:.6g}% "
-                f"@ (b={b_idx}, h={h_idx}, s={s_idx}, d={d_idx}) "
-                f"Flex={fv:.6g}, Manual={mv:.6g}"
-            )
+                fv = flex_f32[b_idx, h_idx, s_idx, d_idx].item()
+                mv = manual_f32[b_idx, h_idx, s_idx, d_idx].item()
+                av = vals[i].item()
+                rv = av / max(abs(fv), abs(mv), eps)
+                print(
+                    f"top{i}: absdiff={av:.6g}, rel={rv * 100:.6g}% "
+                    f"@ (b={b_idx}, h={h_idx}, s={s_idx}, d={d_idx}) "
+                    f"Flex={fv:.6g}, Manual={mv:.6g}"
+                )
 
     return {
         "max_abs_diff": max_abs,
-        "max_rel_diff": max_rel,
+        "max_rel_diff": max_rel_pct,
         "fail_ratio": fail_ratio,
         "num_fail": num_fail,
         "any_nan_flex": any_nan_flex,
