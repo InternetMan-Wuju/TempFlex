@@ -15,7 +15,6 @@ from torch.nn.attention.flex_attention import (
     create_block_mask,
     flex_attention,
 )
-import torch_npu
 
 
 def _prepend_ld_library_paths(*paths):
@@ -27,13 +26,64 @@ def _prepend_ld_library_paths(*paths):
     os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(parts)
 
 
-_prepend_ld_library_paths(
-    Path(torch.__file__).resolve().parent / "lib",
-    Path(torch_npu.__file__).resolve().parent / "lib",
-)
-import torch_npu._inductor  # Registers NPU Inductor lowerings and patches flex_attention device checks.
 torch.set_float32_matmul_precision("high")
 MSTX_DOMAIN = "flex_attention2"
+_TORCH_NPU = None
+_TORCH_NPU_IMPORT_ERROR = None
+_NPU_INDUCTOR_READY = False
+
+
+def import_torch_npu(required=False):
+    global _TORCH_NPU, _TORCH_NPU_IMPORT_ERROR
+    if _TORCH_NPU is not None:
+        return _TORCH_NPU
+    if _TORCH_NPU_IMPORT_ERROR is not None:
+        if required:
+            raise RuntimeError("torch_npu is required for NPU execution") from _TORCH_NPU_IMPORT_ERROR
+        return None
+    try:
+        import torch_npu as module
+    except Exception as exc:
+        _TORCH_NPU_IMPORT_ERROR = exc
+        if required:
+            raise RuntimeError("torch_npu is required for NPU execution") from exc
+        return None
+
+    _TORCH_NPU = module
+    _prepend_ld_library_paths(
+        Path(torch.__file__).resolve().parent / "lib",
+        Path(module.__file__).resolve().parent / "lib",
+    )
+    return module
+
+
+def device_is_npu(device):
+    return str(device).startswith("npu")
+
+
+def npu_is_available():
+    module = import_torch_npu(required=False)
+    if module is None or not hasattr(torch, "npu"):
+        return False
+    try:
+        return bool(torch.npu.is_available())
+    except Exception:
+        return False
+
+
+def ensure_npu_inductor():
+    global _NPU_INDUCTOR_READY
+    if _NPU_INDUCTOR_READY:
+        return
+    import_torch_npu(required=True)
+    try:
+        import torch_npu._inductor  # noqa: F401
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to import torch_npu._inductor. Check that the NPU runtime is "
+            "visible to this Python process and that torch/torch_npu versions match."
+        ) from exc
+    _NPU_INDUCTOR_READY = True
 #---------- 原始 flexattention 相关函数 ----------
 def create_attention(
     score_mod,
@@ -93,7 +143,7 @@ def manualattention(q, k, v, mask_mod, dense_mask=None, scale=None):
     return output
 #---------- 配置参数 ----------
 B, H, S, D = 4, 8, 2048, 128
-test_device = "npu"
+test_device = "auto"
 test_dtypes = [torch.bfloat16]
 test_score_mask_mod_map = {identity: causal_mask}   # 键为 scoremod，值为 maskmod
 
@@ -130,15 +180,34 @@ def set_seed(seed):
 
 
 def set_device(device):
-    if str(device).startswith("npu"):
+    if device_is_npu(device):
         torch.npu.set_device(device)
 
 
 def sync_device(device):
-    if str(device).startswith("npu"):
+    if device_is_npu(device):
         torch.npu.synchronize()
     elif str(device).startswith("cuda"):
         torch.cuda.synchronize()
+
+
+def resolve_device(args):
+    requested = str(args.device)
+    if requested == "auto":
+        args.device = "npu" if npu_is_available() else "cpu"
+        print(f"resolved --device auto -> {args.device}")
+        return args.device
+
+    if device_is_npu(requested):
+        import_torch_npu(required=True)
+        if not npu_is_available():
+            raise RuntimeError(
+                f"Requested --device {requested}, but torch.npu.is_available() is False. "
+                "If npu-smi works on the host, check that this Python process/container "
+                "has the Ascend device and runtime mounted."
+            )
+
+    return requested
 
 
 def make_default_args(**overrides):
@@ -158,6 +227,7 @@ def make_default_args(**overrides):
         block_n=64,
         manual_mask="precompute",
         dynamic_compile=False,
+        allow_npu_dynamic_compile=False,
         enable_gqa=False,
         mstx=False,
         compare=True,
@@ -184,7 +254,11 @@ def make_inputs(args):
 
 
 def make_flex_runner(q, k, v, score_mod, mask_mod, args):
-    block_mask_device = "cpu" if str(args.device).startswith("npu") else args.device
+    use_npu = device_is_npu(args.device)
+    if use_npu:
+        ensure_npu_inductor()
+
+    block_mask_device = "cpu" if use_npu else args.device
     block_mask = create_block_mask(
         mask_mod,
         1,
@@ -206,10 +280,28 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args):
         block_n=args.block_n,
         kernel_options_extra=kernel_options_extra,
     )
+
+    if not use_npu:
+        if args.dynamic_compile:
+            print("Ignoring --dynamic-compile for non-NPU flex attention; using eager execution.")
+
+        def run():
+            return sdpa_fn(q, k, v)
+
+        return run
+
+    dynamic_compile = args.dynamic_compile
+    if dynamic_compile and not args.allow_npu_dynamic_compile:
+        print(
+            "Ignoring --dynamic-compile for NPU flex attention because this path is "
+            "unstable with torch_npu Inductor; use --allow-npu-dynamic-compile to force it."
+        )
+        dynamic_compile = False
+
     compiled_sdpa = torch.compile(
         sdpa_fn,
         backend="inductor",
-        dynamic=args.dynamic_compile,
+        dynamic=dynamic_compile,
     )
 
     def run():
@@ -232,17 +324,17 @@ def make_manual_runner(q, k, v, mask_mod, args):
 def mstx_start(message, enabled):
     if not enabled:
         return None
-    return torch_npu.npu.mstx.range_start(message, domain=MSTX_DOMAIN)
+    return import_torch_npu(required=True).npu.mstx.range_start(message, domain=MSTX_DOMAIN)
 
 
 def mstx_end(range_id, enabled):
     if enabled and range_id is not None:
-        torch_npu.npu.mstx.range_end(range_id, domain=MSTX_DOMAIN)
+        import_torch_npu(required=True).npu.mstx.range_end(range_id, domain=MSTX_DOMAIN)
 
 
 def mstx_mark(message, enabled):
     if enabled:
-        torch_npu.npu.mstx.mark(message, domain=MSTX_DOMAIN)
+        import_torch_npu(required=True).npu.mstx.mark(message, domain=MSTX_DOMAIN)
 
 
 def time_runner(label, runner, args):
@@ -382,6 +474,7 @@ def detailed_compare(output_flex, output_manual, rtol, atol, topk=10):
 
 
 def run_benchmark(args, score_mod=identity, mask_mod=causal_mask):
+    resolve_device(args)
     q, k, v = make_inputs(args)
     outputs = {}
     timings = {}
@@ -424,6 +517,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask):
 
 
 def profile_target(args):
+    resolve_device(args)
     print(
         f"profile target={args.target}, pid={os.getpid()}, "
         f"manual_mask={args.manual_mask}, dynamic_compile={args.dynamic_compile}, "
@@ -469,6 +563,8 @@ def target_argv_for_msprof(args, target):
     ]
     if args.dynamic_compile:
         argv.append("--dynamic-compile")
+    if args.allow_npu_dynamic_compile:
+        argv.append("--allow-npu-dynamic-compile")
     if args.enable_gqa:
         argv.append("--enable-gqa")
     return argv
@@ -540,7 +636,7 @@ def parse_args():
     parser.add_argument("--seq-len", type=int, default=S)
     parser.add_argument("--head-dim", type=int, default=D)
     parser.add_argument("--dtype", default="bfloat16")
-    parser.add_argument("--device", default=test_device)
+    parser.add_argument("--device", default=test_device, help="Device to run on, for example auto, npu, npu:0, cpu, or cuda.")
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeat", type=int, default=10)
     parser.add_argument("--seed", type=int, default=0)
@@ -556,7 +652,7 @@ def parse_args():
         "--dynamic-compile",
         dest="dynamic_compile",
         action="store_true",
-        help="Pass dynamic=True to torch.compile.",
+        help="Request dynamic=True for torch.compile. NPU flex attention ignores this unless --allow-npu-dynamic-compile is also set.",
     )
     parser.add_argument(
         "--static-compile",
@@ -565,6 +661,11 @@ def parse_args():
         help="Pass dynamic=False to torch.compile for fixed-shape experiments. This is the default.",
     )
     parser.set_defaults(dynamic_compile=False)
+    parser.add_argument(
+        "--allow-npu-dynamic-compile",
+        action="store_true",
+        help="Force dynamic=True for NPU flex attention. By default it is disabled because it can segfault in torch_npu Inductor.",
+    )
     parser.add_argument("--enable-gqa", action="store_true")
     parser.add_argument("--mstx", action="store_true", help="Emit MSTX ranges around timed loops.")
     parser.add_argument(
