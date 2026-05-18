@@ -117,12 +117,14 @@ def build_dense_mask(mask_mod, seq_len, device, dtype):
     return torch.where(mask_bool, zero, neg_inf).unsqueeze(0).unsqueeze(0)
 
 
-def manualattention(q, k, v, mask_mod, dense_mask=None, scale=None):
+def manualattention(q, k, v, mask_mod, dense_mask=None, scale=None, debug=False):
     """
     用基础 PyTorch 算子实现带 mask 的 Attention。
     maskmod 与原 flexattention 中的定义一致：
     maskmod(batch, head, tokenq, tokenkv) -> bool（True 表示保留，False 表示屏蔽）
     """
+    if debug:
+        print("running 手动attn")
     B, H, S, D = q.shape
     if scale is None:
         scale = 1.0 / math.sqrt(D)
@@ -305,6 +307,7 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args):
     )
 
     def run():
+        #print(f"Running flex")
         return compiled_sdpa(q, k, v)
 
     return run

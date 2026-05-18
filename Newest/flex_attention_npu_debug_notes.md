@@ -20,16 +20,25 @@ This file is intentionally stored under `/CYT_fileSys_2/Code1/flex_test/Newest/`
 - `python3 flex_attention2.py` still enters `torch.compile` on the first compiled function call. It may reuse cache, but it still goes through Dynamo/Inductor setup.
 - `TORCHINDUCTOR_FORCE_DISABLE_CACHES=1` forces cache bypass and is useful for checking whether source changes are active.
 - `torch_npu/_inductor/kernel/flex_attention.py` is the Flex Attention lowering/template source, so Python prints there prove compilation/lowering is reached.
+- Codex default `exec_command` sandbox may not expose the Ascend/NPU device nodes. In that sandbox, `torch.npu.is_available()` can print `False` with driver/hal errors even though the user's normal root shell prints `True`.
+  - Verified on 2026-05-18: default sandbox returned `False`; rerunning the same command outside the sandbox returned `True`.
+  - For real NPU checks, `msprof`, or `flex_attention2.py --device npu`, run outside the default sandbox / with escalated execution.
 - Device-side `tl.device_print()` is not safe here:
   - Non-ASCII strings fail during Triton compilation.
   - ASCII `tl.device_print()` still crashed Ascend `triton-adapter-opt` for this generated flex attention kernel.
 - The final timed loop calls the generated object from `AsyncCompile.triton(...).run(...)`, so runtime proof had to wrap the `.run` method returned from `torch._inductor.async_compile.AsyncCompile.triton`.
+- Existing msprof traces under `msprof_out/flex_vs_manual` and `msprof_out/new_run` did not contain the expected `profile_repeat_*` MSTX markers in `msprof_*.json`, despite `--msproftx=on` and `--mstx-domain-include=flex_attention2`.
+  - `summarize_msprof.py --scope auto` therefore fell back to the `repeat-tail` estimate: use the last `repeat` iterations after `warmup`.
+  - This is good enough for a coarse steady-state device comparison, but not as strict as a real MSTX time window.
+  - `api_statistic_*.csv` has no per-call timestamp, so host API totals remain full-profile and include setup/warmup/compile effects.
+- The existing device-side profile conclusion is consistent across two runs: Flex Attention device op total is about 5x manual attention, and Flex top ops look like helper/lowered ops (`SelectV2`, `Cast`, `SoftmaxV2`, `Mul`, `Sub`) rather than an obvious fused attention kernel.
 
 ## Modified Files
 
 Workspace file:
 
 - `/CYT_fileSys_2/Code1/flex_test/flex_attention2.py`
+- `/CYT_fileSys_2/Code1/flex_test/summarize_msprof.py`
 
 Image/runtime files:
 
@@ -48,6 +57,16 @@ No `/vllm-workspace` file was directly modified in this session. The volatile im
 - CPU Flex Attention path uses eager execution instead of `torch.compile`.
 - NPU `--dynamic-compile` is ignored by default because the path is unstable; use `--allow-npu-dynamic-compile` to force it.
 - Explicit NPU request gives a clearer runtime error if `torch.npu.is_available()` is false in the current process/container.
+- `manualattention()` now has a `debug=False` flag and no longer prints during every warmup/repeat iteration by default, because that print polluted wall-clock benchmark timing.
+
+### summarize_msprof.py
+
+- The script now writes the same summary it prints to `<root>/result.log` by default.
+- Use `--result-log PATH` to override the log path.
+- Use `--no-result-log` to print only to stdout.
+- Generated logs from this session:
+  - `/CYT_fileSys_2/Code1/flex_test/msprof_out/flex_vs_manual/result.log`
+  - `/CYT_fileSys_2/Code1/flex_test/msprof_out/new_run/result.log`
 
 ### torch_npu/_inductor/kernel/flex_attention.py
 

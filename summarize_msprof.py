@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
+import contextlib
 import csv
 import heapq
+import io
 import json
 import math
 import re
 import shlex
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -768,6 +771,11 @@ def print_hints(summaries):
         print("- Manual is mostly BatchMatMul/Softmax, which are mature dense kernels; it can beat an unfused/fallback Flex path.")
 
 
+def default_result_log(root):
+    root = root.resolve()
+    return root / "result.log"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize msprof_out into human-readable comparison tables.")
     parser.add_argument("root", nargs="?", default="msprof_out/flex_vs_manual", help="msprof output root or a PROF_* dir")
@@ -792,6 +800,16 @@ def parse_args():
         type=float,
         default=200.0,
         help="skip MSTX trace scan if JSON is larger than this many MiB",
+    )
+    parser.add_argument(
+        "--result-log",
+        default=None,
+        help="path to save the printed summary; default is <root>/result.log",
+    )
+    parser.add_argument(
+        "--no-result-log",
+        action="store_true",
+        help="only print to stdout and do not write result.log",
     )
     return parser.parse_args()
 
@@ -822,7 +840,18 @@ def main():
         for label, profile_dir in profiles
     ]
     summaries.sort(key=lambda summary: (summary.label, summary.profile_dir.name))
-    print_summary(root, summaries, top_n=args.top)
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        print_summary(root, summaries, top_n=args.top)
+    summary_text = buffer.getvalue()
+    print(summary_text, end="")
+
+    if not args.no_result_log:
+        result_log = Path(args.result_log) if args.result_log else default_result_log(root)
+        result_log.parent.mkdir(parents=True, exist_ok=True)
+        result_log.write_text(summary_text, encoding="utf-8")
+        print(f"\n[result log] wrote: {result_log.resolve()}", file=sys.stderr)
 
 
 if __name__ == "__main__":
