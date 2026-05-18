@@ -239,6 +239,9 @@ def make_default_args(**overrides):
         msprof_output=None,
         msprof_aic_metrics="PipeUtilization",
         msprof_option=[],
+        prescale_qk=False,
+        num_warps=None,
+        num_stages=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -273,6 +276,12 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args):
     if mask_mod is causal_mask:
         kernel_options_extra["ROWS_GUARANTEED_SAFE"] = True
         kernel_options_extra["BLOCKS_ARE_CONTIGUOUS"] = True
+    if args.prescale_qk:
+        kernel_options_extra["PRESCALE_QK"] = True
+    if args.num_warps is not None:
+        kernel_options_extra["num_warps"] = args.num_warps
+    if args.num_stages is not None:
+        kernel_options_extra["num_stages"] = args.num_stages
 
     sdpa_fn = create_attention(
         score_mod,
@@ -570,6 +579,12 @@ def target_argv_for_msprof(args, target):
         argv.append("--allow-npu-dynamic-compile")
     if args.enable_gqa:
         argv.append("--enable-gqa")
+    if args.prescale_qk:
+        argv.append("--prescale-qk")
+    if args.num_warps is not None:
+        argv.extend(["--num-warps", str(args.num_warps)])
+    if args.num_stages is not None:
+        argv.extend(["--num-stages", str(args.num_stages)])
     return argv
 
 
@@ -670,6 +685,13 @@ def parse_args():
         help="Force dynamic=True for NPU flex attention. By default it is disabled because it can segfault in torch_npu Inductor.",
     )
     parser.add_argument("--enable-gqa", action="store_true")
+    parser.add_argument(
+        "--prescale-qk",
+        action="store_true",
+        help="Set Flex Attention PRESCALE_QK=True. This can be faster but may slightly change numerics.",
+    )
+    parser.add_argument("--num-warps", type=int, default=None, help="Override Triton num_warps for Flex Attention.")
+    parser.add_argument("--num-stages", type=int, default=None, help="Override Triton num_stages for Flex Attention.")
     parser.add_argument("--mstx", action="store_true", help="Emit MSTX ranges around timed loops.")
     parser.add_argument(
         "--suppress-compile-errors",

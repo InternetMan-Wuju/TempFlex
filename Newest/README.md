@@ -27,4 +27,7 @@ The installer backs up current target files into:
 
 ## Notes
 
-Read `flex_attention_npu_debug_notes.md` in this same directory before continuing the investigation in a fresh Codex session.
+Read these files before continuing the investigation in a fresh Codex session:
+
+- `flex_attention_npu_debug_notes.md`
+- `flex_attention_npu_optimization_report.md`
