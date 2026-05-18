@@ -1,0 +1,113 @@
+# Flex Attention NPU Debug Notes
+
+Date: 2026-05-18
+
+This note records the changes made during the Codex debugging session so the next Codex session can continue quickly.
+
+This file is intentionally stored under `/CYT_fileSys_2/Code1/flex_test/Newest/`, not under `aboutCodex/`, because `aboutCodex/` is gitignored and may contain personal configuration.
+
+## Goal
+
+`flex_attention2.py` was crashing or unclear around NPU Inductor/Flex Attention compilation. We needed:
+
+- `flex_attention2.py` to run directly.
+- `--dynamic-compile` to avoid the unstable NPU dynamic compile path by default.
+- A clear distinction between Flex Attention compilation and actual kernel runtime.
+- A portable copy of modified files, because image-provided Python site-packages files may be refreshed.
+
+## Main Findings
+
+- `python3 flex_attention2.py` still enters `torch.compile` on the first compiled function call. It may reuse cache, but it still goes through Dynamo/Inductor setup.
+- `TORCHINDUCTOR_FORCE_DISABLE_CACHES=1` forces cache bypass and is useful for checking whether source changes are active.
+- `torch_npu/_inductor/kernel/flex_attention.py` is the Flex Attention lowering/template source, so Python prints there prove compilation/lowering is reached.
+- Device-side `tl.device_print()` is not safe here:
+  - Non-ASCII strings fail during Triton compilation.
+  - ASCII `tl.device_print()` still crashed Ascend `triton-adapter-opt` for this generated flex attention kernel.
+- The final timed loop calls the generated object from `AsyncCompile.triton(...).run(...)`, so runtime proof had to wrap the `.run` method returned from `torch._inductor.async_compile.AsyncCompile.triton`.
+
+## Modified Files
+
+Workspace file:
+
+- `/CYT_fileSys_2/Code1/flex_test/flex_attention2.py`
+
+Image/runtime files:
+
+- `/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/kernel/flex_attention.py`
+- `/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/npu_triton_heuristics.py`
+- `/usr/local/python3.11.14/lib/python3.11/site-packages/torch/_inductor/async_compile.py`
+
+No `/vllm-workspace` file was directly modified in this session. The volatile image files patched here are Python site-packages files listed above.
+
+## What Changed
+
+### flex_attention2.py
+
+- Delayed `torch_npu._inductor` import until NPU Flex Attention actually needs it.
+- Added `--device auto`; default resolves to NPU when available, otherwise CPU.
+- CPU Flex Attention path uses eager execution instead of `torch.compile`.
+- NPU `--dynamic-compile` is ignored by default because the path is unstable; use `--allow-npu-dynamic-compile` to force it.
+- Explicit NPU request gives a clearer runtime error if `torch.npu.is_available()` is false in the current process/container.
+
+### torch_npu/_inductor/kernel/flex_attention.py
+
+- Added Python-side compile prints:
+  - `正在编译 torch_npu flex_attention forward kernel ...`
+  - `正在编译 torch_npu flex_attention backward kernel ...`
+- Removed device-side `tl.device_print()` after it caused Triton/Ascend compilation failures.
+- Left a host-side autotuner hook attempt in place; the final runtime proof comes from `async_compile.py`.
+
+### torch_npu/_inductor/npu_triton_heuristics.py
+
+- Added helper functions and a host-side print attempt in `NPUCachingAutotuner.run()`.
+- This path did not catch the final timed-loop launch for the observed generated code, but the changes are harmless and kept for additional visibility if that path is used.
+
+### torch/_inductor/async_compile.py
+
+- Added a narrow wrapper around `AsyncCompile.triton(...)` results.
+- It only activates when:
+  - `device_str == "npu"`
+  - the generated source looks like flex attention.
+- It wraps the returned kernel object's `.run(...)` method and prints:
+  - `正在运行 torch_npu flex_attention forward kernel run#N`
+  - or `正在运行 torch_npu flex_attention backward kernel run#N`
+
+## Portable Copies
+
+Final copies are stored under:
+
+- `/CYT_fileSys_2/Code1/flex_test/Newest/workspace/flex_attention2.py`
+- `/CYT_fileSys_2/Code1/flex_test/Newest/site-packages/torch_npu/_inductor/kernel/flex_attention.py`
+- `/CYT_fileSys_2/Code1/flex_test/Newest/site-packages/torch_npu/_inductor/npu_triton_heuristics.py`
+- `/CYT_fileSys_2/Code1/flex_test/Newest/site-packages/torch/_inductor/async_compile.py`
+
+Use this script after a fresh image reset:
+
+```bash
+bash /CYT_fileSys_2/Code1/flex_test/Newest/apply_newest.sh
+```
+
+The script backs up target files under `Newest/backups/<timestamp>/` before replacing them.
+
+## Test Commands
+
+Normal run:
+
+```bash
+python3 flex_attention2.py
+```
+
+Force recompilation:
+
+```bash
+TORCHINDUCTOR_FORCE_DISABLE_CACHES=1 \
+TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor_probe \
+python3 flex_attention2.py
+```
+
+Expected debug markers:
+
+```text
+[torch_npu flex_attention debug] 正在编译 torch_npu flex_attention forward kernel ...
+[torch_npu flex_attention debug] 正在运行 torch_npu flex_attention forward kernel run#1
+```

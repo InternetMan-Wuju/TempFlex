@@ -1,5 +1,5 @@
 # ===============================
-# 2️⃣ 添加 Python3.11 动态库路径
+# 添加 Python3.11 动态库路径
 # ===============================
 PYTHON_LIB_DIR="/usr/local/python3.11.14/lib"
 if [ -f "$PYTHON_LIB_DIR/libpython3.11.so.1.0" ]; then
