@@ -1,48 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ===============================
+# 添加 Python3.11 动态库路径
+# ===============================
+PYTHON_LIB_DIR="/usr/local/python3.11.14/lib"
+if [ -f "$PYTHON_LIB_DIR/libpython3.11.so.1.0" ]; then
+    export LD_LIBRARY_PATH="$PYTHON_LIB_DIR:$LD_LIBRARY_PATH"
+    echo "[OK] 已将 python3.11 动态库路径加入 LD_LIBRARY_PATH"
+else
+    echo "[ERROR] 未找到 libpython3.11.so.1.0，请检查 Python 安装！" >&2
+    exit 1
+fi
+
+ln -sf /usr/local/python3.11.14/bin/python3.11 /usr/bin/python3
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BACKUP_DIR="${SCRIPT_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
 
 copy_one() {
     local src="$1"
     local dst="$2"
-    local rel="${dst#/}"
-    local backup="${BACKUP_DIR}/${rel}"
 
-    if [[ ! -f "${src}" ]]; then
+    if [[ ! -f "$src" ]]; then
         echo "[ERROR] missing source: ${src}" >&2
         exit 1
     fi
 
     mkdir -p "$(dirname "${dst}")"
-    if [[ -e "${dst}" ]]; then
-        mkdir -p "$(dirname "${backup}")"
-        cp -a "${dst}" "${backup}"
-        echo "[BACKUP] ${dst} -> ${backup}"
-    else
-        echo "[BACKUP] ${dst} did not exist"
-    fi
-
-    cp -a "${src}" "${dst}"
+    cp -a "${src}" "${dst}"   # 只替换，不做任何 backup
     echo "[INSTALL] ${src} -> ${dst}"
 }
 
-echo "[INFO] applying Newest patch bundle from: ${SCRIPT_DIR}"
-echo "[INFO] repo root: ${REPO_ROOT}"
-echo "[INFO] backup dir: ${BACKUP_DIR}"
-
-copy_one "${SCRIPT_DIR}/workspace/flex_attention2.py" \
-    "${REPO_ROOT}/flex_attention2.py"
+echo "[INFO] applying flex attention operator (no backup) ..."
 
 copy_one "${SCRIPT_DIR}/site-packages/torch_npu/_inductor/kernel/flex_attention.py" \
-    "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/kernel/flex_attention.py"
+         "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/kernel/flex_attention.py"
 
-copy_one "${SCRIPT_DIR}/site-packages/torch_npu/_inductor/npu_triton_heuristics.py" \
-    "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/npu_triton_heuristics.py"
-
-copy_one "${SCRIPT_DIR}/site-packages/torch/_inductor/async_compile.py" \
-    "/usr/local/python3.11.14/lib/python3.11/site-packages/torch/_inductor/async_compile.py"
-
-echo "[OK] Newest patch bundle applied"
+echo "[OK] flex attention operator replaced"
