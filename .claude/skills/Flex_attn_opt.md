@@ -136,8 +136,8 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 | `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `hybrid_sparse` | 复合稀疏 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `random_block_sparse` | 随机块稀疏 | ⚠️ 未测试 | 使用 tensor 索引，可能不支持 |
-| `alibi_causal` | ALiBi + Causal | ⚠️ 未测试 | score_mod 含 slopes 数组访问 |
+| `random_block_sparse` | 随机块稀疏 | ❌ bishengir | `aten.index.Tensor`（tensor 索引）不支持 |
+| `alibi_causal` | ALiBi + Causal | ❌ bishengir | `aten.index.Tensor`（slopes[head] 索引）不支持 |
 
 ### 输出解读
 
