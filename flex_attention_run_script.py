@@ -19,7 +19,25 @@ from types import SimpleNamespace
 from torch.nn.attention.flex_attention import (
     create_block_mask,
     flex_attention,
+    BlockMask,
 )
+
+from sparse_masks import get_sparse_config, list_sparse_configs
+
+# Reorder module for block-level KV reordering
+try:
+    from torch_npu._inductor.kernel.flex_attention_reorder import (
+        reorder_flex_forward,
+        compute_block_hit_rate,
+        unpermute_output,
+        make_reordered_score_mod,
+        compute_and_set_pending_perm,
+        REORDER_REGISTRY,
+    )
+    _HAS_REORDER = True
+except ImportError:
+    _HAS_REORDER = False
+    REORDER_REGISTRY = {}
 
 
 def _prepend_ld_library_paths(*paths):
@@ -327,22 +345,25 @@ def make_inputs(args):
     return q, k, v
 
 
-def make_flex_runner(q, k, v, score_mod, mask_mod, args):
+def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimizations=None):
     use_npu = device_is_npu(args.device)
     if use_npu:
         ensure_npu_inductor()
 
     block_mask_device = "cpu" if use_npu else args.device
-    block_mask = create_block_mask(
-        mask_mod,
-        1,
-        1,
-        args.seq_len,
-        args.seq_len,
-        device=block_mask_device,
-    ).to(args.device)
+    if block_mask is None:
+        block_mask = create_block_mask(
+            mask_mod,
+            1,
+            1,
+            args.seq_len,
+            args.seq_len,
+            device=block_mask_device,
+        ).to(args.device)
     kernel_options_extra = {}
-    if mask_mod is causal_mask:
+    if optimizations is not None:
+        kernel_options_extra.update(optimizations)
+    elif mask_mod is causal_mask:
         kernel_options_extra["ROWS_GUARANTEED_SAFE"] = True
         kernel_options_extra["BLOCKS_ARE_CONTIGUOUS"] = True
     if args.prescale_qk:
@@ -557,19 +578,87 @@ def detailed_compare(output_flex, output_manual, rtol, atol, topk=10):
     }
 
 
-def run_benchmark(args, score_mod=identity, mask_mod=causal_mask):
+def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=None, extra_args=None):
+    if extra_args is None:
+        extra_args = {}
     resolve_device(args)
     q, k, v = make_inputs(args)
     outputs = {}
     timings = {}
 
     if args.target in ("both", "flex"):
-        flex_runner = make_flex_runner(q, k, v, score_mod, mask_mod, args)
+        # Handle pre-built block mask for patterns like random_block_sparse
+        block_mask_override = None
+        if extra_args.get("build_block_mask_fn") and mask_mod is None:
+            from torch.nn.attention.flex_attention import BlockMask
+            fn = extra_args["build_block_mask_fn"]
+            kv_num, kv_idx, simple_mask = fn(args.seq_len)
+            kv_num_bh = kv_num.unsqueeze(0).unsqueeze(0)
+            kv_idx_bh = kv_idx.unsqueeze(0).unsqueeze(0)
+            block_mask_override = BlockMask.from_kv_blocks(
+                kv_num_blocks=kv_num_bh,
+                kv_indices=kv_idx_bh,
+                full_kv_num_blocks=torch.zeros_like(kv_num_bh),
+                full_kv_indices=torch.zeros_like(kv_idx_bh),
+                BLOCK_SIZE=(128, 128),
+                mask_mod=simple_mask,
+            )
+            # Use the simple mask_mod for the flex runner
+            flex_runner = make_flex_runner(q, k, v, score_mod, simple_mask, args,
+                                           block_mask=block_mask_override,
+                                           optimizations=optimizations)
+        else:
+            flex_runner = make_flex_runner(q, k, v, score_mod, mask_mod, args,
+                                           optimizations=optimizations)
         outputs["flex"], timings["flex"] = time_runner("Flex Attention", flex_runner, args)
 
     if args.target in ("both", "manual"):
         manual_runner = make_manual_runner(q, k, v, mask_mod, args)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
+
+    # ── Reorder variant: kernel-internal via set_pending_perm ──
+    reorder_hit_rate = None
+    if getattr(args, "enable_block_reorder", False) and _HAS_REORDER and device_is_npu(args.device):
+        block_mask_device = "cpu" if device_is_npu(args.device) else args.device
+        bm = create_block_mask(
+            mask_mod, 1, 1, args.seq_len, args.seq_len,
+            device=block_mask_device,
+        ).to(args.device)
+
+        baseline_hit = compute_block_hit_rate(
+            bm.kv_indices, bm.kv_num_blocks,
+            bm.full_kv_indices, bm.full_kv_num_blocks,
+        )
+
+        perm = compute_and_set_pending_perm(
+            bm.kv_num_blocks, bm.kv_indices,
+            bm.full_kv_num_blocks, bm.full_kv_indices,
+            mode=args.block_reorder_mode,
+            wave_size=args.wave_size,
+            verbose=True,
+        )
+
+        if perm is not None:
+            # Kernel-internal reorder: perm is set, kernel will use it.
+            # No need to reorder Q, modify block_mask, or unpermute output.
+            reorder_runner = make_flex_runner(
+                q, k, v, score_mod, mask_mod, args,
+                block_mask=bm,
+                optimizations=optimizations,
+            )
+
+            outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
+                f"Flex+{args.block_reorder_mode}", reorder_runner, args)
+
+            # Compute reordered hit rate for display
+            reordered_hit = compute_block_hit_rate(
+                bm.kv_indices, bm.kv_num_blocks,
+                bm.full_kv_indices, bm.full_kv_num_blocks,
+            )
+            reorder_hit_rate = (baseline_hit, reordered_hit)
+        else:
+            reorder_hit_rate = (baseline_hit, baseline_hit)
+            print("[reorder] Identity permutation — reorder skipped")
 
     close = None
     stats = None
@@ -592,18 +681,62 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask):
         )
         print("✅ 测试通过（allclose=True）" if close else "❌ 测试失败（allclose=False）")
 
+        if reorder_hit_rate is not None:
+            print(f"  Hit rate: {reorder_hit_rate[0]:.4f} → {reorder_hit_rate[1]:.4f} "
+                  f"(delta: {reorder_hit_rate[1] - reorder_hit_rate[0]:+.4f})")
+
+        # ── Reorder vs manual comparison (not done above) ──
+        if "flex_reorder" in outputs and "manual" in outputs and args.compare:
+            print("\n--- flex_reorder vs manual ---")
+            close_reorder = torch.allclose(
+                outputs["flex_reorder"].float(),
+                outputs["manual"].float(),
+                rtol=rtol,
+                atol=atol,
+            )
+            reorder_stats = detailed_compare(
+                outputs["flex_reorder"],
+                outputs["manual"],
+                rtol=rtol,
+                atol=atol,
+                topk=args.topk,
+            )
+
+            # Extra NaN analysis for reorder output
+            o_reorder = outputs["flex_reorder"]
+            o_manual = outputs["manual"]
+            if torch.isnan(o_reorder).any():
+                nan_mask = torch.isnan(o_reorder)
+                nan_count = nan_mask.sum().item()
+                total = o_reorder.numel()
+                print(f"  NaN count: {nan_count}/{total} ({100.0*nan_count/total:.2f}%)")
+                # Check if NaN is per-sequence-position
+                nan_per_pos = nan_mask.any(dim=-1).any(dim=1).float().mean(dim=0)  # [S]
+                nan_seq_positions = torch.where(nan_per_pos > 0)[0]
+                print(f"  Number of sequence positions with any NaN: {len(nan_seq_positions)}/{o_reorder.shape[2]}")
+                # Check if NaN correlates with reorder
+                if reorder_hit_rate:
+                    bsl, reord = reorder_hit_rate
+                    print(f"  (note: hit rate is {bsl:.4f} -> {reord:.4f}, hit rate=0 may indicate empty block rows)")
+
+            print("✅ reorder 测试通过（allclose=True）" if close_reorder else "❌ reorder 测试失败（allclose=False）")
+
     return {
         "outputs": outputs,
         "timings": timings,
         "close": close,
         "stats": stats,
+        "reorder_hit_rate": reorder_hit_rate,
     }
 
 
-def run_shape_sweep(args, score_mod=identity, mask_mod=causal_mask):
+def run_shape_sweep(args, score_mod=identity, mask_mod=causal_mask, optimizations=None, extra_args=None):
+    if extra_args is None:
+        extra_args = {}
     shapes = selected_shapes(args)
     if len(shapes) == 1:
-        return run_benchmark(args_for_shape(args, shapes[0]), score_mod=score_mod, mask_mod=mask_mod)
+        return run_benchmark(args_for_shape(args, shapes[0]), score_mod=score_mod, mask_mod=mask_mod,
+                             optimizations=optimizations, extra_args=extra_args)
 
     shape_results = []
     print(f"running shape sweep: {len(shapes)} shapes")
@@ -614,7 +747,8 @@ def run_shape_sweep(args, score_mod=identity, mask_mod=causal_mask):
             f"B:{shape[0]} H:{shape[1]} S:{shape[2]} D:{shape[3]} ==="
         )
         try:
-            result = run_benchmark(shape_args, score_mod=score_mod, mask_mod=mask_mod)
+            result = run_benchmark(shape_args, score_mod=score_mod, mask_mod=mask_mod,
+                                    optimizations=optimizations, extra_args=extra_args)
             shape_results.append((shape, result, None))
         except RuntimeError as exc:
             message = str(exc).splitlines()[0]
@@ -739,6 +873,126 @@ def run_msprof(args):
         print(f"msprof output for {target}: {out_dir}")
 
 
+SWEEP_SHAPES = [
+    "1,4,512,64",
+    "2,4,512,64",
+    "2,8,1024,64",
+    "4,8,2048,128",
+]
+
+# Configs that are safe for small/medium shapes (no hardcoded seq_len assumptions)
+_SMALL_SPARSE_CONFIGS = [
+    "causal",
+    "sliding_window_64",
+    "sliding_window_128",
+    "global_local",
+    "nested",
+    "prefix_lm",
+    "dilated_window",
+    "strided",
+]
+
+
+def _resolve_sparse_configs(args):
+    """Parse --sparse-config into a list of config names.
+
+    Supported values:
+      - None / "all" : all configs from list_sparse_configs()
+      - "small"       : 8 configs safe for small shapes
+      - "causal,sliding_window_64,..." : comma-separated list
+    """
+    val = args.sparse_config
+    if val is None or val == "all":
+        return list_sparse_configs()
+    if val == "small":
+        return list(_SMALL_SPARSE_CONFIGS)
+    return [c.strip() for c in val.split(",") if c.strip()]
+
+
+def run_sweep_mode(args):
+    """Run sparse configs × shapes in subprocess isolation.
+
+    Each (config, shape) pair runs as a fresh subprocess to avoid
+    torch.compile / Inductor state pollution between different sparse patterns.
+
+    Use --sparse-config to control which configs (default: all).
+      --sparse-config small   → 8 safe configs for small shapes
+      --sparse-config causal,sliding_window_64 → comma-separated
+    """
+    sparse_configs = _resolve_sparse_configs(args)
+    shapes = SWEEP_SHAPES[:]
+    if args.max_shapes is not None:
+        shapes = shapes[:args.max_shapes]
+
+    summary = []
+    for config in sparse_configs:
+        for shape in shapes:
+            B, H, S, D = (int(x) for x in shape.split(","))
+            cmd = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--shape", shape,
+                "--warmup", str(args.warmup),
+                "--repeat", str(args.repeat),
+                "--no-compare" if not args.compare else "",
+            ]
+            cmd = [c for c in cmd if c]
+            label = f"  [{config}] {shape}"
+
+            env = {**os.environ, "SPARSE_CONFIG": config}
+            start = time.time()
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=args.warmup * args.repeat * 30 + 60,  # generous per test
+                    env=env,
+                )
+                elapsed = time.time() - start
+
+                if result.returncode != 0:
+                    err = result.stderr.splitlines()[-3:] if result.stderr else ["(no stderr)"]
+                    print(f"{label} ... ❌  ERROR ({elapsed:.0f}s)")
+                    for line in err:
+                        print(f"    {line.strip()}")
+                    summary.append((config, shape, "ERROR", None, None, None))
+                else:
+                    # Parse timing
+                    flex_ms = parse_sweep_timing(result.stdout, "Flex Attention")
+                    manual_ms = parse_sweep_timing(result.stdout, "Manual Attention")
+                    passed = "✅" if flex_ms is not None else "?"
+                    print(f"{label} ...  {passed}  flex={flex_ms}  manual={manual_ms}  ({elapsed:.0f}s)")
+                    summary.append((config, shape, "OK", flex_ms, manual_ms, None))
+            except subprocess.TimeoutExpired:
+                print(f"{label} ... ❌  TIMEOUT")
+                summary.append((config, shape, "TIMEOUT", None, None, None))
+            except Exception as exc:
+                print(f"{label} ... ❌  {type(exc).__name__}: {exc}")
+                summary.append((config, shape, "ERROR", None, None, type(exc).__name__))
+
+    # Print summary table
+    print("\n\n========== SWEEP SUMMARY ==========")
+    print(f"{'config':25s} {'shape':16s} {'result':8s} flex_ms manual_ms")
+    for config, shape, result, flex_ms, manual_ms, _ in summary:
+        flex_s = f"{flex_ms:.3f}" if flex_ms else "-"
+        manual_s = f"{manual_ms:.3f}" if manual_ms else "-"
+        print(f"  {config:25s} {shape:16s} {result:8s} {flex_s} {manual_s}")
+
+
+def parse_sweep_timing(stdout, keyword):
+    for line in stdout.splitlines():
+        if keyword in line and "avg:" in line:
+            try:
+                parts = line.split("avg:")
+                val = parts[1].strip().split("ms")[0].strip()
+                val = val.replace("\033[31m", "").replace("\033[0m", "")
+                return float(val)
+            except (IndexError, ValueError):
+                pass
+    return None
+
+
 class TestFlexAttention(unittest.TestCase):
     def setUp(self):
         super().setUp()
@@ -775,7 +1029,7 @@ def parse_args():
     )
     parser.add_argument(
         "--mode",
-        choices=["benchmark", "profile-target", "msprof", "unittest"],
+        choices=["benchmark", "sweep", "profile-target", "msprof", "unittest"],
         default="benchmark",
     )
     parser.add_argument("--target", choices=["both", "flex", "manual"], default="both")
@@ -822,6 +1076,11 @@ def parse_args():
         help="precompute excludes dense mask creation from the repeated manual attention loop.",
     )
     parser.add_argument(
+        "--sparse-config",
+        default=None,
+        help="Sparse mask config name from sparse_masks.py (e.g. causal, sliding_window_64).",
+    )
+    parser.add_argument(
         "--dynamic-compile",
         dest="dynamic_compile",
         action="store_true",
@@ -858,6 +1117,13 @@ def parse_args():
     parser.add_argument("--rtol", type=float, default=None)
     parser.add_argument("--atol", type=float, default=None)
     parser.add_argument("--topk", type=int, default=10)
+    parser.add_argument("--enable-block-reorder", action="store_true",
+                        help="Enable block-level query reordering via spectral wave-overlap.")
+    parser.add_argument("--block-reorder-mode", default="wave_overlap",
+                        choices=sorted(set(["wave_overlap"] + list(REORDER_REGISTRY.keys()))),
+                        help="Reorder mode (default: wave_overlap).")
+    parser.add_argument("--wave-size", type=int, default=132,
+                        help="Wave partition size for reorder algorithms (default: 132).")
     parser.add_argument("--msprof-output", default=None)
     parser.add_argument("--msprof-aic-metrics", default="PipeUtilization")
     parser.add_argument(
@@ -891,9 +1157,33 @@ if __name__ == "__main__":
     torch._dynamo.config.suppress_errors = args.suppress_compile_errors
 
     if args.mode == "benchmark":
-        result = run_shape_sweep(args)
-        if result["close"] is False:
+        # Support both --sparse-config CLI arg and SPARSE_CONFIG env var
+        if args.sparse_config is None and "SPARSE_CONFIG" in os.environ:
+            args.sparse_config = os.environ["SPARSE_CONFIG"]
+        if args.sparse_config:
+            sparse_cfg = get_sparse_config(args.sparse_config)
+            score_mod = sparse_cfg.get("score_mod", identity)
+            mask_mod = sparse_cfg.get("mask_mod", causal_mask)
+            optimizations = sparse_cfg.get("optimizations", None)
+            print(f"[sparse-config] {args.sparse_config}: {sparse_cfg.get('description', '')}")
+
+            # Handle special patterns that need pre-built kv_indices
+            if sparse_cfg.get("build_block_mask"):
+                from sparse_masks import build_random_block_sparse_mask
+                extra_args = {"sparse_cfg": sparse_cfg, "build_block_mask_fn": build_random_block_sparse_mask}
+            else:
+                extra_args = {}
+        else:
+            score_mod = identity
+            mask_mod = causal_mask
+            optimizations = None
+            extra_args = {}
+        result = run_shape_sweep(args, score_mod=score_mod, mask_mod=mask_mod,
+                                 optimizations=optimizations, extra_args=extra_args)
+        if result and result.get("close") is False:
             sys.exit(1)
+    elif args.mode == "sweep":
+        run_sweep_mode(args)
     elif args.mode == "profile-target":
         profile_target(args)
     elif args.mode == "msprof":

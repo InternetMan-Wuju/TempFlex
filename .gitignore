@@ -3,3 +3,5 @@
 /torch_compile_debug
 /msprof_out
 /temp
+sparse-attn-source/
+__pycache__/

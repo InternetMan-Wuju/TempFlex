@@ -11,7 +11,36 @@ metadata:
 
 在 NPU（Ascend）上优化 `torch_npu/_inductor/kernel/flex_attention.py`，核心是把 `sparse-attn-source` 的 **block reorder（重排）** 技术用到 `torch_npu` 的 flex_attention 实现中，让 flex_attention 在各种稀疏模式下都能达到或接近 manual attention 的性能。
 
-> ⚠️ **当前状态：block reorder 尚未正确实现。** `flex_attention_reorder.py` 有设计计划但代码未完成，测试脚本中 `_HAS_REORDER = False`。在此之前所有稀疏模式（包括 causal）都走通用 block-sparse Triton 模板，flex 明显慢于 manual。
+> **当前状态 (2026-06-11)：kernel-internal reorder 正确性已验证。** `flex_attention_reorder.py` 中 `compute_and_set_pending_perm` 计算 permutation，通过 side-channel 传递给 kernel。非 identity permutation（如 sliding_window）正确输出。性能收益待 bishengir 支持更多稀疏模式后评估。
+
+## 核心要求
+
+### Reorder 必须基于 sparse-attn-source 实现
+
+参考实现位于 `sparse-attn-source/new-vllm-omni-for-sparse-attn-main/`：
+
+| 文件 | 内容 |
+|------|------|
+| `vllm_omni/diffusion/attention/backends/greedy_reorder_cuda.py` | CUDA reorder 算法（global_greedy, banded_greedy, banded_window_greedy, optimal_reorder_cuda） |
+| `vllm_omni/diffusion/attention/backends/reorder_rows_graph.py` | CPU reorder 算法（greedy nearest-neighbor, numba JIT） |
+| `examples/offline_inference/text_to_video/reorder_method_branches_zh.md` | 方法演进分支全景图 |
+
+vllm-omni 的 reorder 方法演进路径（按效果排序）：
+
+```
+NNZ/Wave系 → Spectral/Fiedler系 → Global Greedy/BCG系 → Union Oracle系 → Auction CUDA系（当前最佳）
+```
+
+### Reorder 必须在 Kernel 内部实现
+
+**关键教训：外部 Q reorder 在 NPU 上不可行。**
+
+原因：
+1. 外部重排 Q 后，`score_mod`/`mask_mod` 使用物理 token 位置（0..S-1），与原始 Q token 不再对应
+2. 修正 `score_mod` 需要 `torch.where` 链或 `//`/`%` 操作来映射位置，bishengir 编译器无法处理（segfault 或 `bool_to_bool_rintmode`）
+3. NPU 不支持 `aten.index.Tensor`（tensor 下标索引），无法用查表方式映射
+
+正确做法：修改 `flex_attention.py` 的 kernel 模板，在 Q block 迭代循环内部改变 block 处理顺序。
 
 ## 使用场景
 
@@ -28,12 +57,20 @@ metadata:
 raw_flex/                                         ← 原始 torch_npu flex_attention.py
   site-packages/torch_npu/_inductor/kernel/
     flex_attention.py                               (1874 行，未修改)
+    flex_attention_reorder.py                       ← Reorder 算法 + 外部重排工具
   apply_raw.sh                                      ← 部署 raw 版本
 
 Newest/                                            ← 开发版本（含重排设计）
   site-packages/torch_npu/_inductor/kernel/
     flex_attention_newest.py                        (2376 行，开发版本)
+    flex_attention_reorder.py                       ← Reorder 模块（已修复正确性）
   apply_newest.sh                                   ← 部署 Newest 版本
+
+sparse-attn-source/                                ← 参考实现（vllm-omni）
+  new-vllm-omni-for-sparse-attn-main/
+    vllm_omni/diffusion/attention/backends/
+      greedy_reorder_cuda.py                        ← CUDA reorder 算法
+      reorder_rows_graph.py                         ← CPU numba reorder 算法
 
 flex_attention_run_script.py                       ← 单次 attention 性能/正确性测试
 run_sparse_sweep.py                                ← 全量基准测试（多 shape × 多 mask）
@@ -44,7 +81,7 @@ sparse_attention_report.md                         ← 最近一次性能报告
 sparse_attention_after_report.md                   ← 优化后的性能报告
 ```
 
-> ⚠️ **核心目标（block reorder）尚未完成。** `flex_attention_reorder.py` 有设计计划但代码未实现，测试脚本中 `_HAS_REORDER = False`。所有稀疏模式下 flex 目前都走通用 block-sparse 模板，慢于 manual。
+> ⚠️ **核心目标（block reorder）尚未完成。** 外部重排路径受限于 NPU 编译器，真正的性能提升需要 kernel 内部实现。
 
 ## 快速命令
 
@@ -109,7 +146,7 @@ python3 -c "from torch_npu._inductor.kernel.flex_attention_reorder import reorde
 ### 测试 reorder 开启/关闭对比
 
 ```bash
-# 开启 reorder
+# 开启 reorder（仅 identity permutation 生效）
 python3 flex_attention_run_script.py --shape 4,8,2048,128 --enable-block-reorder
 
 # 关闭 reorder（默认）
@@ -127,17 +164,19 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 | `sliding_window_128` | 滑动窗口 size=128 | ✅ 通过 | — |
 | `prefix_lm` | Prefix LM prefix=16 | ✅ 通过 | — |
 | `band_global_32` | Band(32)+Global(2) | ✅ 通过 | — |
-| `global_local` | 全局(4)+局部(64) | ❌ bishengir | UB overflow (1724416 > 1572864 bits) |
+| `global_local` | 全局(4)+局部(64) | ✅ 通过 | 需 `BLOCK_M=32,BLOCK_N=32`（默认 64 会 UB overflow） |
+| `random_block_sparse` | 随机块稀疏 | ✅ 通过 | 需预构建 kv_indices（不能用 `aten.index.Tensor`） |
 | `nested` | 局部(64)+步长(32) | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `dilated_window` | 空洞滑动窗口 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `strided` | 步长掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `checkerboard_64` | 棋盘掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `block_diagonal_64` | 块对角掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
+| `checkerboard_32` | 棋盘掩码 block=32 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
+| `checkerboard_64` | 棋盘掩码 block=64 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
+| `block_diagonal_64` | 块对角 block=64 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
+| `block_diagonal_128` | 块对角 block=128 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `hybrid_sparse` | 复合稀疏 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
 | `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `random_block_sparse` | 随机块稀疏 | ❌ bishengir | `aten.index.Tensor`（tensor 索引）不支持 |
-| `alibi_causal` | ALiBi + Causal | ❌ bishengir | `aten.index.Tensor`（slopes[head] 索引）不支持 |
+| `alibi_causal` | ALiBi + Causal | ❌ bishengir | `aten.index.Tensor` + FP score_mod 不支持 |
 
 ### 输出解读
 
@@ -154,13 +193,13 @@ shape=4,8,2048,128 causal bfloat16
 
 - `flex_attention` — 当前部署版本的 flex 性能
 - `manual_sdpa` — PyTorch 原生 SDPA（基线）
-- `flex_reorder` — block reorder 性能（暂不可用，显示 N/A）
+- `flex_reorder` — block reorder 性能（仅 identity permutation 可用）
 - `max_abs_diff / max_rel_diff` — 与 manual 的精度差异
 
 ### reorder 相关参数
 
 ```bash
---enable-block-reorder         # 开启 block reorder
+--enable-block-reorder         # 开启 block reorder（仅 identity permutation 生效）
 --block-reorder-mode wave_overlap  # 重排算法（默认 wave_overlap）
 --wave-size 128                # wave 分区大小
 ```
@@ -189,7 +228,7 @@ python3 summarize_msprof.py msprof_out/<timestamp>/
 
 ### reorder 不可用
 
-当前 `flex_attention_reorder.py` 尚未实现。如果看到 `_HAS_REORDER = False` 或 import 失败，说明 reorder 功能未就绪，flex 走通用 block-sparse 模板。
+当前 `flex_attention_reorder.py` 已实现外部重排算法，但仅对 identity permutation 生效（causal 等）。非 identity permutation 需要 kernel 内部实现，详见 [[flex-attn-reorder-experience]]。
 
 ### 非 causal 编译报错
 
@@ -203,7 +242,9 @@ python3 summarize_msprof.py msprof_out/<timestamp>/
 已知 bishengir 编译器限制：
 - **`bool_to_bool_rintmode`**：整数 `//`（floor divide）生成的 MLIR 无法编译，影响 8 个模式
 - **UB overflow**：3 条件以上的 mask_mod 超出 UB 空间限制（1572864 bits），影响 `global_local`
-- 这两个问题需要在 bishengir/triton ascend backend 层面修复
+- **segfault**：`torch.where` 链在 score_mod 子图中导致 bishengir 崩溃
+- **`aten.index.Tensor`**：tensor 下标索引不支持
+- 这些问题需要在 bishengir/triton ascend backend 层面修复
 
 ### 部署后 import 失败
 
@@ -222,4 +263,5 @@ bash raw_flex/apply_raw.sh && python3 -c "import torch_npu._inductor.kernel.flex
 |------|------|------|
 | `raw_flex`（原始） | 无优化，所有场景走通用 block-sparse Triton 模板 | ✅ 可用（基线） |
 | `Newest`（开发版） | 新增 debug hook + reorder 相关改动 | ✅ 部署可用 |
-| **block reorder**（sparse-attn-source） | 对 Q/KV blocks 做重排以提升连续访存与缓存命中 | ❌ 设计完成，代码未实现 |
+| **block reorder（外部）** | 对 Q/KV blocks 做外部重排，仅 identity permutation 生效 | ⚠️ 部分可用 |
+| **block reorder（kernel 内部）** | 修改 kernel 模板，通过 side-channel 传递 PERM 实现重排 | ✅ 正确性已验证 |

@@ -277,8 +277,8 @@ _SPARSE_CONFIGS = {
     "global_local": {
         "score_mod": identity_score,
         "mask_mod": make_global_local_mask(global_tokens=4, local_window=64),
-        "description": "Global(4) + Local(64)",
-        "optimizations": {},
+        "description": "Global(4) + Local(64) — needs BLOCK_M=32,BLOCK_N=32 to avoid UB overflow",
+        "optimizations": {"BLOCK_M": 32, "BLOCK_N": 32},
     },
     "nested": {
         "score_mod": identity_score,
@@ -368,7 +368,46 @@ _SPARSE_CONFIGS = {
             "BLOCKS_ARE_CONTIGUOUS": True,
         },
     },
+    "random_block_sparse": {
+        "score_mod": identity_score,
+        "mask_mod": None,  # Special: kv_indices pre-built to avoid aten.index.Tensor
+        "description": "Random Block Sparse (density=0.3) — CPU pre-built kv_indices",
+        "optimizations": {},
+        "build_block_mask": True,
+    },
 }
+
+
+def build_random_block_sparse_mask(seq_len, block_size=128, density=0.3, seed=42):
+    """Pre-build kv_indices for random block sparse to avoid aten.index.Tensor.
+
+    Returns (kv_num_blocks, kv_indices, simple_mask_mod).
+    The returned mask_mod is causal-only and NPU-compatible.
+    """
+    n_blocks = (seq_len + block_size - 1) // block_size
+    rng = torch.Generator()
+    rng.manual_seed(seed)
+    block_mask = torch.rand(n_blocks, n_blocks, generator=rng) < density
+    block_mask = block_mask | torch.eye(n_blocks, dtype=torch.bool)
+    block_mask = torch.tril(block_mask)
+
+    kv_num_list = []
+    kv_idx_list = []
+    for qb in range(n_blocks):
+        valid = [kvb for kvb in range(n_blocks) if block_mask[qb, kvb]]
+        kv_num_list.append(len(valid))
+        kv_idx_list.append(valid)
+
+    # Pad to n_blocks (internal transpose in from_kv_blocks needs this space)
+    kv_idx_padded = [row + [0] * (n_blocks - len(row)) for row in kv_idx_list]
+
+    kv_num_blocks = torch.tensor(kv_num_list, dtype=torch.int32)  # [n_blocks]
+    kv_indices = torch.tensor(kv_idx_padded, dtype=torch.int32)   # [n_blocks, n_blocks]
+
+    def simple_mask(batch, head, token_q, token_kv):
+        return token_q >= token_kv
+
+    return kv_num_blocks, kv_indices, simple_mask
 
 
 def get_sparse_config(name):

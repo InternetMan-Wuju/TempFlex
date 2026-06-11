@@ -37,3 +37,8 @@ copy_one "${SCRIPT_DIR}/site-packages/torch_npu/_inductor/kernel/flex_attention.
          "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/kernel/flex_attention.py"
 
 echo "[OK] flex attention operator replaced"
+
+copy_one "${SCRIPT_DIR}/site-packages/torch_npu/_inductor/kernel/flex_attention_reorder.py" \
+         "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/_inductor/kernel/flex_attention_reorder.py"
+
+echo "[OK] flex attention reorder deployed"
