@@ -191,7 +191,77 @@ wave_id → for w in range(WAVE_SIZE):
 2. Reorder 让相邻 Q blocks 访问相似的 KV blocks → 减少重复加载
 3. Score_mod 不需要修改（Q tensor 不变）
 
-## 6. 待补充
+## 6. Wave-based Kernel 实现计划
+
+### 背景
+
+实验证明：每个 Q block 一个 program 的模型下，reorder 破坏 Q DRAM 连续性，反而慢 2.3x。要让 reorder 有效，必须实现 wave-based 处理。
+
+### 核心思路
+
+```
+当前: program[i] → 处理 Q block[i] → load KV → compute → write
+Wave: program[w] → 处理 Q blocks[w*K .. w*K+K-1] → load KV once → compute all → write all
+```
+
+### 实现方法（非 ad-hoc）
+
+不直接编辑 370 行的模板字符串，而是用 `TritonTemplate` 的多 variant 机制：
+
+**Step 1: 添加 WAVE_SIZE 参数到 kernel_options**
+```python
+kernel_options.setdefault("WAVE_SIZE", 1)
+```
+
+**Step 2: 修改 grid 函数**
+```python
+def _flex_attention_grid_with_wave(*args, **kwargs):
+    grid = list(flex_attention_grid(*args, **kwargs))
+    wave_size = kwargs.get('WAVE_SIZE', 1)
+    grid[0] = max(1, (grid[0] + wave_size - 1) // wave_size)
+    return tuple(grid)
+```
+
+**Step 3: 生成 wave-variant kernel 模板**（关键）
+不是手动编辑字符串，而是用 Python 函数生成：
+```python
+def _generate_wave_kernel_source(base_source, wave_size):
+    """在 base_source 的 Q block 处理循环外包裹 for wave_w 循环"""
+    # 找到 Q block 处理段（m_i 初始化 → store_output）
+    # 添加 4 空格缩进
+    # 在开头插入 for wave_w in range(WAVE_SIZE):
+    # 在结尾插入 # end wave
+    ...
+```
+
+**Step 4: 两个 variant 都注册到 choices**
+```python
+# WAVE_SIZE=1: 原始版本
+error = flex_attention_template.maybe_append_choice(choices=choices, ...)
+
+# WAVE_SIZE>1: wave 版本（如果 kernel_options 指定）
+if kernel_options.get('WAVE_SIZE', 1) > 1:
+    wave_template = TritonTemplate(
+        name="flex_attention_wave",
+        grid=_flex_attention_grid_with_wave,
+        source=generate_wave_source(compute_flex_attention, wave_size),
+    )
+    wave_template.maybe_append_choice(choices=choices, ...)
+```
+
+### 预计效果
+
+- **Program launch 减少**: WAVE_SIZE=2 → grid 减半 → launch overhead 减半
+- **KV cache 潜力**: 同 wave 内 Q blocks 共享 KV（需后续实现 KV buffer）
+- **立即验证**: 对比 WAVE_SIZE=1 vs 2/4/8 的 kernel 时间
+
+### 风险
+
+- 每个 program 的 SRAM 使用量增加（多个 Q blocks 的 acc 需要更多空间）
+- Triton 模板生成需要精确的字符串处理（验证用 git diff 确保只改了目标行）
+- bishengir 编译器可能对大 kernel 有限制
+
+## 7. 待补充
 
 - [ ] Ascend 910B L2 cache / HBM 带宽 / AI Core 数量
 - [ ] alibi_causal 的 FP score_mod workaround
