@@ -33,6 +33,40 @@ metadata:
 python3 flex_attention_run_script.py --mode msprof --shape 4,8,2048,128
 ```
 
+### ⚠️ Reorder 性能测试：必须排除重排计算开销
+
+当使用 `--enable-block-reorder` 测试性能时，**重排计算发生在 flex_attention 调用之前**，不应计入 kernel 执行时间。
+
+**正确做法：只测量 flex_attention 的 kernel 执行时间，不包含 `compute_and_set_pending_perm` 的开销。**
+
+`flex_attention_run_script.py` 已经正确处理了这一点：
+- `compute_and_set_pending_perm()` 在 `time_runner` 之外调用（warmup 之前）
+- `time_runner` 只测量编译后的 `flex_attention` kernel 执行时间
+- msprof 采集同样只覆盖 `time_runner` 内的 kernel 执行
+
+```bash
+# 正确的 reorder 性能测试 —— msprof 只采 flex_attention kernel
+python3 flex_attention_run_script.py --mode msprof \
+  --shape 4,8,2048,128 --enable-block-reorder --target flex
+
+# 对比：无 reorder 的 baseline
+python3 flex_attention_run_script.py --mode msprof \
+  --shape 4,8,2048,128 --target flex
+```
+
+**错误做法（会导致性能数据无效）：**
+```bash
+# ❌ 不要手写循环把 compute_and_set_pending_perm 放在计时范围内
+# ❌ 不要在 warmup/repeat 循环内调用 reorder 计算
+```
+
+**验证 reorder 开销是否被排除：**
+```bash
+# 这两个数字应该非常接近（差异 < 2%）—— reorder 是纯 CPU 计算
+python3 flex_attention_run_script.py --shape 4,8,2048,128 --enable-block-reorder 2>&1 | grep "avg:"
+python3 flex_attention_run_script.py --shape 4,8,2048,128 2>&1 | grep "Flex Attention avg:"
+```
+
 这会：
 1. 先用 flex 跑一次 Attention（子进程），msprof 自动采集
 2. 再用 manual 跑一次，msprof 分开采集
@@ -302,14 +336,17 @@ AI CPU total | 0.800    | 0.050     | 16.0x
 
 **症状：** 非 causal 场景，flex 2-5x 慢于 manual
 
-**当前 NPU 支持的非因果模式（3 个）：**
+**当前 NPU 支持的模式（7 个）：**
+- `causal` — ✅ 通过（基线）
 - `sliding_window_64` / `sliding_window_128` — ✅ 通过
 - `prefix_lm` — ✅ 通过
 - `band_global_32` — ✅ 通过
+- `global_local` — ✅ 通过（需 `BLOCK_M=32,BLOCK_N=32`）
+- `random_block_sparse` — ✅ 通过（需预构建 kv_indices）
 
 **不支持的模式（9 个）：**
-- `global_local`, `nested`, `strided`, `dilated_window`, `checkerboard_64`, `hybrid_sparse`, `block_diagonal_64`, `uniform_doc_256`, `multiscale_dilated`
-- 失败原因：bishengir `bool_to_bool_rintmode`（`//` 操作）或 UB overflow
+- `nested`, `strided`, `dilated_window`, `checkerboard_64`, `hybrid_sparse`, `block_diagonal_64`, `uniform_doc_256`, `multiscale_dilated` — `bool_to_bool_rintmode`
+- `alibi_causal` — `aten.index.Tensor` + FP score_mod
 
 **msprof 表现：**
 - op_total 高，helper % 正常或略高（10-15%）
@@ -318,7 +355,32 @@ AI CPU total | 0.800    | 0.050     | 16.0x
 
 **分析：** NPU Triton adapter 不能有效利用 block sparsity 跳过 masked-out blocks，导致通用模板退化为若干小 matmul 的拼接。
 
-**建议：** 不支持的非因果场景暂时使用 manual SDPA；支持的 3 个模式可通过 `--sparse-config` 直接使用。
+**建议：** 开启 kernel-internal block reorder（`--enable-block-reorder`），观察 hit_rate 变化和 kernel 时间变化。
+
+### 模式 E：Reorder 优化效果评估
+
+**症状：** 开启了 `--enable-block-reorder`，想知道 reorder 是否生效
+
+**判定标准：**
+1. **hit_rate 变化**：看日志中 `Hit rate: X → Y`，如果 Y > X 说明重排改善了 KV block 连续性
+2. **kernel 时间变化**：`Flex+wave_overlap` vs `Flex Attention` 的 avg ms 对比
+
+**msprof 表现：**
+- `Flex Attention` 和 `Flex+wave_overlap` 的时间差反映了 reorder 对 kernel 执行的影响
+- 注意：重排计算（`compute_and_set_pending_perm`）在 CPU 上执行，**不在** msprof 采集范围内
+- 如果 hit_rate 已经 100% 并且两个时间差异 < 2%：reorder 无额外收益（KV 访问已经连续）
+
+```bash
+# 完整的 reorder 效果评估流程
+# 1. 先看 hit_rate 和基本时间
+python3 flex_attention_run_script.py --shape 4,8,2048,128 \
+  --enable-block-reorder --sparse-config global_local
+
+# 2. 用 msprof 深入对比
+python3 flex_attention_run_script.py --mode msprof \
+  --shape 4,8,2048,128 --enable-block-reorder --target flex \
+  --msprof-aic-metrics "Memory"
+```
 
 ### 模式 B：fastpath 内辅助算子残留
 
