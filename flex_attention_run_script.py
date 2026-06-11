@@ -590,7 +590,6 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         # Handle pre-built block mask for patterns like random_block_sparse
         block_mask_override = None
         if extra_args.get("build_block_mask_fn") and mask_mod is None:
-            from torch.nn.attention.flex_attention import BlockMask
             fn = extra_args["build_block_mask_fn"]
             kv_num, kv_idx, simple_mask = fn(args.seq_len)
             kv_num_bh = kv_num.unsqueeze(0).unsqueeze(0)
@@ -602,7 +601,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 full_kv_indices=torch.zeros_like(kv_idx_bh),
                 BLOCK_SIZE=(128, 128),
                 mask_mod=simple_mask,
-            )
+            ).to(args.device)
             # Use the simple mask_mod for the flex runner
             flex_runner = make_flex_runner(q, k, v, score_mod, simple_mask, args,
                                            block_mask=block_mask_override,
@@ -612,7 +611,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                                            optimizations=optimizations)
         outputs["flex"], timings["flex"] = time_runner("Flex Attention", flex_runner, args)
 
-    if args.target in ("both", "manual"):
+    if args.target in ("both", "manual") and mask_mod is not None:
         manual_runner = make_manual_runner(q, k, v, mask_mod, args)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
 
@@ -620,23 +619,42 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
     reorder_hit_rate = None
     if getattr(args, "enable_block_reorder", False) and _HAS_REORDER and device_is_npu(args.device):
         block_mask_device = "cpu" if device_is_npu(args.device) else args.device
-        bm = create_block_mask(
-            mask_mod, 1, 1, args.seq_len, args.seq_len,
-            device=block_mask_device,
-        ).to(args.device)
+
+        # Use pre-built block mask if available, otherwise create from mask_mod
+        build_fn = extra_args.get("build_block_mask_fn")
+        if build_fn and args.sparse_config:
+            kv_num, kv_idx, _ = build_fn(args.seq_len)
+            kv_num_bh = kv_num.unsqueeze(0).unsqueeze(0)
+            kv_idx_bh = kv_idx.unsqueeze(0).unsqueeze(0)
+            full_kv_num = torch.zeros_like(kv_num_bh)
+            full_kv_idx = torch.zeros_like(kv_idx_bh)
+            bm = BlockMask.from_kv_blocks(
+                kv_num_blocks=kv_num_bh, kv_indices=kv_idx_bh,
+                full_kv_num_blocks=full_kv_num, full_kv_indices=full_kv_idx,
+                BLOCK_SIZE=(128, 128), mask_mod=mask_mod,
+            ).to(args.device)
+        else:
+            bm = create_block_mask(
+                mask_mod, 1, 1, args.seq_len, args.seq_len,
+                device=block_mask_device,
+            ).to(args.device)
 
         baseline_hit = compute_block_hit_rate(
             bm.kv_indices, bm.kv_num_blocks,
             bm.full_kv_indices, bm.full_kv_num_blocks,
         )
 
-        perm = compute_and_set_pending_perm(
-            bm.kv_num_blocks, bm.kv_indices,
-            bm.full_kv_num_blocks, bm.full_kv_indices,
-            mode=args.block_reorder_mode,
-            wave_size=args.wave_size,
-            verbose=True,
-        )
+        try:
+            perm = compute_and_set_pending_perm(
+                bm.kv_num_blocks, bm.kv_indices,
+                bm.full_kv_num_blocks, bm.full_kv_indices,
+                mode=args.block_reorder_mode,
+                wave_size=args.wave_size,
+                verbose=True,
+            )
+        except Exception as e:
+            print(f"[reorder] Error computing permutation: {e}")
+            perm = None
 
         if perm is not None:
             # Kernel-internal reorder: perm is set, kernel will use it.
@@ -1171,6 +1189,8 @@ if __name__ == "__main__":
             if sparse_cfg.get("build_block_mask"):
                 from sparse_masks import build_random_block_sparse_mask
                 extra_args = {"sparse_cfg": sparse_cfg, "build_block_mask_fn": build_random_block_sparse_mask}
+                if mask_mod is None:
+                    mask_mod = causal_mask  # flex_attention API needs a callable mask_mod
             else:
                 extra_args = {}
         else:

@@ -19,11 +19,23 @@ metadata:
 'hivm.hir.vcast' op currently don't support cast bool_to_bool_rintmode
 ```
 
-**根因**：整数 `//`（floor divide）在 Triton→MLIR lowering 中生成 `arith.floordivsi`，bishengir 对该操作生成的中间 cast 不支持。所有除法变体（`torch.div`、`>>`右移、`true_divide`、乘倒数）均触发同样错误。
+**根因**：整数 `//`（floor divide）在 Triton→MLIR lowering 中生成 `arith.floordivsi`，bishengir 对该操作生成的中间 cast（`hivm.hir.vcast bool_to_bool_rintmode`）不支持。
 
-**Workaround**：❌ Python/Triton 层面无 workaround。需 bishengir/Triton ascend backend 层面修复 `arith.floordivsi` 的 lowering。
+**已尝试的 workaround**（全部失败）：
+| 尝试 | 代码 | 结果 |
+|------|------|------|
+| `torch.div` 替代 | `torch.div(a, 128, rounding_mode='floor')` | ❌ 同样 bool_to_bool_rintmode |
+| true_divide + floor | `(a.float()/128.0).floor().int()` | ❌ 同样 |
+| 右移替代 | `a >> 7`（= a // 128） | ❌ 同样（inductor 不支持 pointwise 中的位移） |
+| 乘倒数 | `(a * 0.0078125).floor().int()` | ❌ 同样 |
 
-**受影响模式**：nested, dilated_window, strided, checkerboard_64, block_diagonal_64, uniform_doc_256, hybrid_sparse, multiscale_dilated
+**结论**：❌ Python/Triton 层面无 workaround。这是 CANN 8.5.0 bishengir 编译器 bug，`arith.floordivsi` 的 lowering 路径中存在 unsupported cast。需升级 CANN 或向华为提交 bug。
+
+**替代方案（绕过 `//`）**：
+- 用 CPU pre-build kv_indices + `BlockMask.from_kv_blocks` 可以绕过 `//`（适用于纯 block-level 的 mask，如 `random_block_sparse`）
+- 对于 token-level 需要 `//` 的模式（如 `block_diagonal`），无法绕过
+
+**受影响模式**：nested, dilated_window, strided, checkerboard_64, block_diagonal_64/128, uniform_doc_256, hybrid_sparse, multiscale_dilated
 
 ### 1.2 UB overflow（1 个模式受影响）
 
@@ -120,9 +132,69 @@ kernel_options = {"BLOCK_M": 32, "BLOCK_N": 32}  # 默认是 64/64
 ### 用 from_kv_blocks 绕过 mask_mod 限制
 对于纯 block-level 的模式（如 random_block_sparse），可以在 CPU 上预计算 kv_indices，配合简单 mask_mod。
 
-## 5. 待补充
+## 5. Reorder 性能效果总结
+
+### 实测数据
+
+| Pattern | S | hit_rate | baseline | reorder | diff |
+|---------|---|----------|----------|---------|------|
+| causal | 512-8192 | 1.0 | — | identity perm (跳过) | — |
+| sliding_window_64 | 512 | 1.0 | 1.072ms | 1.060ms | -1.1% |
+| global_local | 512 | 0.875 | 3.212ms | 3.286ms | +2.3% |
+| global_local | 4096 | 0.875 | 30.888ms | 30.910ms | +0.07% |
+| global_local | 8192 | 0.875 | 61.802ms | 61.811ms | +0.01% |
+| random_block_sparse | 512 | 1.0 | 0.454ms | identity perm (跳过) | — |
+| scattered (自定义) | 2048 | 0.0 | — | hit_rate still 0 | 0% |
+
+### 结论：当前 NPU 架构下 reorder 反而更慢（2.3x 实测）
+
+**实验**：random_block_sparse @ S=2048, hit_rate=0.43
+- Baseline（无 reorder）：1.301 ms
+- Reorder（kernel-internal PERM）：3.023 ms → **慢 2.3x**
+
+**根因**：每个 Q block = 一个独立的 program。Program 按顺序加载 Q 内存时有 coalesced access。Reorder 破坏了这种连续性：
+
+```
+原始:  program[i] → Q[i*64 : i*64+64]  ← 连续 DRAM 访问
+重排:  program[i] → Q[perm[i]*64 : ...]  ← 散乱 DRAM 访问
+```
+
+Q 加载从连续变为散乱，DRAM 带宽效率大幅下降，其开销远超 KV cache 改善。
+
+```
+GPU vllm-omni:
+  wave[0..7] 在同一个 thread block 内
+  → 8个 Q blocks 共享 L2 cache
+  → reorder 有效
+
+NPU flex_attention:
+  program[0], program[1], ... 独立 launch
+  → 每个 program 各自加载 KV blocks
+  → reorder 无效
+```
+
+### 正确方案：Wave-based kernel
+
+修改 kernel 模板，让单个 program 处理多个连续的 Q blocks：
+
+```python
+# 当前：每个 program 处理 1 个 Q block
+program_id → 处理 Q block[pid]
+
+# Wave 方案：每个 program 处理 WAVE_SIZE 个 Q blocks
+wave_id → for w in range(WAVE_SIZE):
+             处理 Q block[wave_id * WAVE_SIZE + w]
+```
+
+这样：
+1. 同一 wave 内的 Q blocks 可以共享已加载的 KV blocks
+2. Reorder 让相邻 Q blocks 访问相似的 KV blocks → 减少重复加载
+3. Score_mod 不需要修改（Q tensor 不变）
+
+## 6. 待补充
 
 - [ ] Ascend 910B L2 cache / HBM 带宽 / AI Core 数量
-- [ ] 更多 bishengir 编译选项
 - [ ] alibi_causal 的 FP score_mod workaround
-- [ ] CANN 版本升级路径
+- [ ] CANN 版本升级路径（8.5.0 → ?）
+- [ ] Wave-based kernel 实现
+- [ ] bishengir bug 向华为提交的渠道
