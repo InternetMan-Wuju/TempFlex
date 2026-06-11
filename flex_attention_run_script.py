@@ -857,6 +857,10 @@ def target_argv_for_msprof(args, target):
         argv.extend(["--num-warps", str(args.num_warps)])
     if args.num_stages is not None:
         argv.extend(["--num-stages", str(args.num_stages)])
+    if args.sparse_config:
+        argv.extend(["--sparse-config", args.sparse_config])
+    if args.enable_block_reorder:
+        argv.append("--enable-block-reorder")
     return argv
 
 
