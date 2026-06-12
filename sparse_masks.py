@@ -372,7 +372,10 @@ _SPARSE_CONFIGS = {
         "score_mod": identity_score,
         "mask_mod": None,  # Special: kv_indices pre-built to avoid aten.index.Tensor
         "description": "Random Block Sparse (density=0.3) — CPU pre-built kv_indices",
-        "optimizations": {},
+        "optimizations": {
+            "ROWS_GUARANTEED_SAFE": True,
+            "BLOCKS_ARE_CONTIGUOUS": True,
+        },
         "build_block_mask": True,
     },
 }
