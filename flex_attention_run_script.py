@@ -683,7 +683,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         manual_runner = make_manual_runner(q, k, v, mask_mod, args)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
 
-    # ── Reorder variant: kernel-internal via set_pending_perm ──
+    # ── Reorder variant: block-level external Q/KV reorder ──
     reorder_hit_rate = None
     if getattr(args, "enable_block_reorder", False) and _HAS_REORDER and device_is_npu(args.device):
         block_mask_device = "cpu" if device_is_npu(args.device) else args.device
@@ -727,25 +727,61 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         reorder_comp_ms = (time.perf_counter() - t0) * 1000.0
 
         if perm is not None:
-            # Kernel-internal reorder: perm is set, kernel will use it.
-            # No need to reorder Q, modify block_mask, or unpermute output.
+            # External block-level reorder:
+            #   1. Reorder Q blocks according to perm
+            #   2. Reorder kv_indices / kv_num_blocks rows
+            #   3. Call flex_attention
+            #   4. Unpermute output
+            B, H, S, D = q.shape
+            n_blocks = len(perm)
+            block_size = bm.BLOCK_SIZE[0]  # SPARSE_Q_BLOCK_SIZE
+
+            # Build inverse permutation
+            inv_perm = torch.empty_like(perm)
+            inv_perm[perm] = torch.arange(n_blocks, dtype=perm.dtype)
+
+            # Block-level reorder of Q
+            q_perm = q.view(B, H, n_blocks, block_size, D)
+            q_perm = q_perm[:, :, perm, :, :].reshape(B, H, S, D)
+
+            # Block-level reorder of kv_indices / kv_num_blocks
+            kv_indices_perm = bm.kv_indices[:, :, perm, :]
+            kv_num_blocks_perm = bm.kv_num_blocks[:, :, perm]
+
+            # Build reordered block mask
+            full_zeros_kv_num = torch.zeros_like(kv_num_blocks_perm)
+            full_zeros_kv_idx = torch.zeros_like(kv_indices_perm)
+            bm_perm = BlockMask.from_kv_blocks(
+                kv_num_blocks=kv_num_blocks_perm,
+                kv_indices=kv_indices_perm,
+                full_kv_num_blocks=full_zeros_kv_num,
+                full_kv_indices=full_zeros_kv_idx,
+                BLOCK_SIZE=bm.BLOCK_SIZE,
+                mask_mod=mask_mod,
+            ).to(args.device)
+
             reorder_runner = make_flex_runner(
-                q, k, v, score_mod, mask_mod, args,
-                block_mask=bm,
+                q_perm, k, v, score_mod, mask_mod, args,
+                block_mask=bm_perm,
                 optimizations=optimizations,
             )
 
             outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
                 f"Flex+{args.block_reorder_mode}", reorder_runner, args)
 
+            # Unpermute output back to original order
+            out_perm = outputs["flex_reorder"]
+            out_unperm = out_perm.view(B, H, n_blocks, block_size, -1)
+            out_unperm = out_unperm[:, :, inv_perm, :, :].reshape(B, H, S, -1)
+            outputs["flex_reorder"] = out_unperm
+
             # Compute reordered hit rate for display
             reordered_hit = compute_block_hit_rate(
-                bm.kv_indices, bm.kv_num_blocks,
-                bm.full_kv_indices, bm.full_kv_num_blocks,
+                bm_perm.kv_indices, bm_perm.kv_num_blocks,
+                bm_perm.full_kv_indices, bm_perm.full_kv_num_blocks,
             )
             reorder_hit_rate = (baseline_hit, reordered_hit)
 
-            # Show reorder computation time separately from kernel time
             print(
                 f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
                 f"| kernel time: {timings['flex_reorder']:.3f} ms "
