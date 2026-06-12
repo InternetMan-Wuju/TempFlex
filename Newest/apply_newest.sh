@@ -15,6 +15,12 @@ fi
 
 ln -sf /usr/local/python3.11.14/bin/python3.11 /usr/bin/python3
 
+# Ensure torch_npu lib is findable by subprocess compile workers
+TORCH_NPU_LIB="/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/lib"
+if [ -d "$TORCH_NPU_LIB" ]; then
+    export LD_LIBRARY_PATH="$TORCH_NPU_LIB:$LD_LIBRARY_PATH"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 copy_one() {
