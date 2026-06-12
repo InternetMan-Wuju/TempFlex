@@ -407,7 +407,7 @@ def make_flex_reorder_runner(q, k, v, args, block_mask, perm):
     return run
 
 
-def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimizations=None):
+def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimizations=None, _graph_salt=None):
     use_npu = device_is_npu(args.device)
     if use_npu:
         ensure_npu_inductor()
@@ -465,14 +465,26 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimi
         )
         dynamic_compile = False
 
-    compiled_sdpa = torch.compile(
-        sdpa_fn,
-        backend="inductor",
-        dynamic=dynamic_compile,
-    )
+    if _graph_salt is not None:
+        # Inject _graph_salt into the traced graph to ensure a unique
+        # cache key, preventing Inductor from reusing a cached kernel
+        # from a different compilation (e.g., baseline's causal fastpath).
+        salt = _graph_salt
+        orig_sdpa = sdpa_fn
+        def salted_fn(q_arg, k_arg, v_arg):
+            result = orig_sdpa(q_arg, k_arg, v_arg)
+            # Add salt as a no-op: salt.sum()*0 = 0, doesn't change result
+            # but forces salt into the FX graph as an additional input
+            return result + (salt.sum() * 0.0)
+        compiled_sdpa = torch.compile(salted_fn, backend="inductor", dynamic=dynamic_compile)
+    else:
+        compiled_sdpa = torch.compile(
+            sdpa_fn,
+            backend="inductor",
+            dynamic=dynamic_compile,
+        )
 
     def run():
-        #print(f"Running flex")
         return compiled_sdpa(q, k, v)
 
     return run
@@ -719,9 +731,10 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         manual_runner = make_manual_runner(q, k, v, mask_mod, args)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
 
-    # ── Reorder variant: block-level external Q/KV reorder ──
+    # ── Reorder variant: kernel-internal Q-block reorder ──
     reorder_hit_rate = None
     if getattr(args, "enable_block_reorder", False) and _HAS_REORDER and device_is_npu(args.device):
+
         block_mask_device = "cpu" if device_is_npu(args.device) else args.device
 
         # Use pre-built block mask if available, otherwise create from mask_mod
@@ -757,28 +770,51 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 wave_size=args.wave_size,
                 verbose=True,
             )
+            # NOTE: _PENDING_PERM is now set. The lowering hook uses it as a
+            # signal to read PERM from full_q_num_blocks (not add_tensor_constant).
         except Exception as e:
             print(f"[reorder] Error computing permutation: {e}")
             perm = None
         reorder_comp_ms = (time.perf_counter() - t0) * 1000.0
 
         if perm is not None:
-            # Kernel-internal reorder via set_pending_perm side-channel.
-            # compute_and_set_pending_perm stored the perm in _PENDING_PERM.
-            # When make_flex_runner compiles the function, the lowering detects
-            # the pending perm and uses the PERM-based kernel template, which
-            # reads q_start = perm[program_id] for true kernel-internal reorder.
+            # Kernel-internal Q-block reorder via PERM in full_kv_indices
+            B, H, S, D = q.shape
+            n_blocks = len(perm)
+
+            # Expand block-level perm to program level.
+            # Each sparse block (128 tokens) has 2 programs (BLOCK_M=64).
+            # PERM template reads q_start directly from FULL_KV_IDX[pid].
+            block_m = 64
+            sparse_block_size = bm.BLOCK_SIZE[0]  # 128
+            sub_per_sparse = sparse_block_size // block_m  # 2
+            n_programs = n_blocks * sub_per_sparse
+            perm_prog = torch.zeros(n_programs, dtype=torch.int32)
+            for i in range(n_blocks):
+                base = int(perm[i]) * sub_per_sparse
+                perm_prog[i * sub_per_sparse] = base
+                perm_prog[i * sub_per_sparse + 1] = base + 1
+
+            # Store program-level PERM in full_kv_indices.
+            # full_kv_indices shape: (1, 1, n_blocks, max_blocks) = (1, 1, 64, 64)
+            # Enough space for n_programs entries in row-major order.
+            flat = bm.full_kv_indices.reshape(-1)
+            flat[:n_programs] = perm_prog.to(torch.int32)
+
+            # Use empty optimizations for generic template + PERM
+            reorder_opts = {}
+            # CRITICAL: Clone Q/K/V to avoid tensor dedup hang with baseline
+            q2, k2, v2 = q.clone(), k.clone(), v.clone()
             reorder_runner = make_flex_runner(
-                q, k, v, score_mod, mask_mod, args,
+                q2, k2, v2, score_mod, mask_mod, args,
                 block_mask=bm,
-                optimizations=optimizations,
+                optimizations=reorder_opts,
             )
 
             outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
                 f"Flex+{args.block_reorder_mode}", reorder_runner, args)
 
-            # Kernel-internal reorder: block_mask unchanged, hit rate is computed
-            # on the same kv_indices (no external reordering of mask data).
+            # Compute reordered hit rate (same as baseline since block mask is unchanged)
             reordered_hit = compute_block_hit_rate(
                 bm.kv_indices, bm.kv_num_blocks,
                 bm.full_kv_indices, bm.full_kv_num_blocks,
