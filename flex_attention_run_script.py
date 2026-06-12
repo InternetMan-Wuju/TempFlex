@@ -167,7 +167,7 @@ def manualattention(q, k, v, mask_mod, dense_mask=None, scale=None, debug=False)
     output = torch.matmul(attn_weights, v)
     return output
 #---------- 配置参数 ----------
-B, H, S, D = 4, 8, 2048, 128
+B, H, S, D = 4, 8, 8192, 128
 SHAPE_SUITES = {
     "single": [(B, H, S, D)],
     "small": [
@@ -179,6 +179,12 @@ SHAPE_SUITES = {
         (1, 4, 512, 64),
         (2, 8, 1024, 64),
         (B, H, S, D),
+    ],
+    "large": [
+        (1, 4, 4096, 128),
+        (1, 4, 8192, 128),
+        (2, 4, 8192, 128),
+        (2, 8, 16384, 128),
     ],
 }
 test_device = "auto"
@@ -277,21 +283,39 @@ def release_device_memory(device):
 
 def resolve_device(args):
     requested = str(args.device)
+
+    # Support comma-separated multi-device: --device npu:0,npu:1
+    device_candidates = [d.strip() for d in requested.split(",") if d.strip()]
+
+    resolved = []
+    for device_str in device_candidates:
+        if device_str == "auto":
+            resolved_device = "npu" if npu_is_available() else "cpu"
+        else:
+            resolved_device = device_str
+
+        if device_is_npu(resolved_device):
+            import_torch_npu(required=True)
+            if not npu_is_available():
+                raise RuntimeError(
+                    f"Requested --device {resolved_device}, but torch.npu.is_available() is False. "
+                    "If npu-smi works on the host, check that this Python process/container "
+                    "has the Ascend device and runtime mounted."
+                )
+        resolved.append(resolved_device)
+
+    # Store the full list for multi-device sweeps
+    args.devices_list = resolved
+    # Keep args.device as the primary device for backward compat
+    args.device = resolved[0]
+
+    if len(resolved) > 1:
+        print(f"Multi-device mode: {', '.join(resolved)}")
+
     if requested == "auto":
-        args.device = "npu" if npu_is_available() else "cpu"
         print(f"resolved --device auto -> {args.device}")
-        return args.device
 
-    if device_is_npu(requested):
-        import_torch_npu(required=True)
-        if not npu_is_available():
-            raise RuntimeError(
-                f"Requested --device {requested}, but torch.npu.is_available() is False. "
-                "If npu-smi works on the host, check that this Python process/container "
-                "has the Ascend device and runtime mounted."
-            )
-
-    return requested
+    return args.device
 
 
 def make_default_args(**overrides):
@@ -329,6 +353,7 @@ def make_default_args(**overrides):
         max_shapes=None,
         continue_on_shape_error=True,
         selected_shapes=None,
+        trim_outliers=True,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -453,23 +478,61 @@ def time_runner(label, runner, args):
         )
         mstx_mark(f"profile_repeat_start target={args.target} label={safe_label}", args.mstx)
         range_id = mstx_start(repeat_name, args.mstx)
-        sync_device(args.device)
-        start_time = time.perf_counter()
+
+        # Per-iteration timing for outlier rejection
+        iter_times_ms = []
         for _ in range(args.repeat):
+            sync_device(args.device)
+            t0 = time.perf_counter()
             last_output = runner()
-        sync_device(args.device)
-        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            sync_device(args.device)
+            iter_times_ms.append((time.perf_counter() - t0) * 1000.0)
+
         mstx_end(range_id, args.mstx)
         mstx_mark(f"profile_repeat_end target={args.target} label={safe_label}", args.mstx)
 
-    avg_ms = elapsed_ms / args.repeat
+    # ── Outlier rejection via MAD (Median Absolute Deviation) ──
+    n = len(iter_times_ms)
+    use_trim = getattr(args, "trim_outliers", True) and n >= 5
+
+    if use_trim:
+        sorted_times = sorted(iter_times_ms)
+        mid = n // 2
+        if n % 2 == 1:
+            median = sorted_times[mid]
+        else:
+            median = (sorted_times[mid - 1] + sorted_times[mid]) / 2.0
+
+        abs_devs = sorted(abs(t - median) for t in iter_times_ms)
+        if n % 2 == 1:
+            mad = abs_devs[mid]
+        else:
+            mad = (abs_devs[mid - 1] + abs_devs[mid]) / 2.0
+
+        threshold = 3.0 * mad
+        if threshold == 0.0:
+            # All iterations identical — no outliers possible
+            kept = iter_times_ms
+        else:
+            kept = [t for t in iter_times_ms if abs(t - median) <= threshold]
+
+        dropped = n - len(kept)
+        if len(kept) == 0:
+            avg_ms = median
+        else:
+            avg_ms = sum(kept) / len(kept)
+    else:
+        avg_ms = sum(iter_times_ms) / n
+        dropped = 0
+
     RED = "\033[31m"
     RESET = "\033[0m"
 
+    trim_note = f", trimmed: {dropped}/{n} outliers dropped" if (use_trim and dropped > 0) else ""
     print(
         f"B:{args.batch} H:{args.heads} S:{args.seq_len} D:{args.head_dim} "
         f"| {label} avg: {RED}{avg_ms:.3f} ms{RESET} "
-        f"(warmup={args.warmup}, repeat={args.repeat})"
+        f"(warmup={args.warmup}, repeat={args.repeat}{trim_note})"
     )
     return last_output, avg_ms
 
@@ -644,6 +707,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             bm.full_kv_indices, bm.full_kv_num_blocks,
         )
 
+        t0 = time.perf_counter()
         try:
             perm = compute_and_set_pending_perm(
                 bm.kv_num_blocks, bm.kv_indices,
@@ -655,6 +719,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         except Exception as e:
             print(f"[reorder] Error computing permutation: {e}")
             perm = None
+        reorder_comp_ms = (time.perf_counter() - t0) * 1000.0
 
         if perm is not None:
             # Kernel-internal reorder: perm is set, kernel will use it.
@@ -674,6 +739,14 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 bm.full_kv_indices, bm.full_kv_num_blocks,
             )
             reorder_hit_rate = (baseline_hit, reordered_hit)
+
+            # Show reorder computation time separately from kernel time
+            print(
+                f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
+                f"| kernel time: {timings['flex_reorder']:.3f} ms "
+                f"| comp/kernel ratio: {reorder_comp_ms / max(timings['flex_reorder'], 1e-6):.2%}"
+            )
+            timings["reorder_comp"] = reorder_comp_ms
         else:
             reorder_hit_rate = (baseline_hit, baseline_hit)
             print("[reorder] Identity permutation — reorder skipped")
@@ -751,36 +824,46 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
 def run_shape_sweep(args, score_mod=identity, mask_mod=causal_mask, optimizations=None, extra_args=None):
     if extra_args is None:
         extra_args = {}
+
+    resolve_device(args)  # populates args.devices_list
+
     shapes = selected_shapes(args)
-    if len(shapes) == 1:
+    if len(shapes) == 1 and len(args.devices_list) == 1:
         return run_benchmark(args_for_shape(args, shapes[0]), score_mod=score_mod, mask_mod=mask_mod,
                              optimizations=optimizations, extra_args=extra_args)
 
     shape_results = []
-    print(f"running shape sweep: {len(shapes)} shapes")
-    for index, shape in enumerate(shapes, start=1):
-        shape_args = args_for_shape(args, shape)
-        print(
-            f"\n=== shape {index}/{len(shapes)}: "
-            f"B:{shape[0]} H:{shape[1]} S:{shape[2]} D:{shape[3]} ==="
-        )
-        try:
-            result = run_benchmark(shape_args, score_mod=score_mod, mask_mod=mask_mod,
-                                    optimizations=optimizations, extra_args=extra_args)
-            shape_results.append((shape, result, None))
-        except RuntimeError as exc:
-            message = str(exc).splitlines()[0]
-            print(f"shape failed: {type(exc).__name__}: {message}")
-            shape_results.append((shape, None, exc))
-            if not args.continue_on_shape_error:
-                raise
-        finally:
-            release_device_memory(shape_args.device)
+    n_devices = len(args.devices_list)
+    device_tag = f" across {n_devices} devices" if n_devices > 1 else ""
+    print(f"running shape sweep: {len(shapes)} shapes{device_tag}")
+
+    for device in args.devices_list:
+        for index, shape in enumerate(shapes, start=1):
+            shape_args = args_for_shape(args, shape)
+            shape_args.device = device  # pin to specific device
+            device_label = f" [{device}]" if n_devices > 1 else ""
+            print(
+                f"\n=== shape {index}/{len(shapes)}: "
+                f"B:{shape[0]} H:{shape[1]} S:{shape[2]} D:{shape[3]}{device_label} ==="
+            )
+            try:
+                result = run_benchmark(shape_args, score_mod=score_mod, mask_mod=mask_mod,
+                                        optimizations=optimizations, extra_args=extra_args)
+                shape_results.append((shape, device, result, None))
+            except RuntimeError as exc:
+                message = str(exc).splitlines()[0]
+                print(f"shape failed: {type(exc).__name__}: {message}")
+                shape_results.append((shape, device, None, exc))
+                if not args.continue_on_shape_error:
+                    raise
+            finally:
+                release_device_memory(shape_args.device)
 
     print("\n-------- shape sweep summary --------")
     failed = False
-    for shape, result, error in shape_results:
-        label = f"B:{shape[0]} H:{shape[1]} S:{shape[2]} D:{shape[3]}"
+    for shape, device, result, error in shape_results:
+        device_col = f" [{device}]" if n_devices > 1 else ""
+        label = f"B:{shape[0]} H:{shape[1]} S:{shape[2]} D:{shape[3]}{device_col}"
         if error is not None:
             failed = True
             print(f"{label} | error={type(error).__name__}")
@@ -900,6 +983,9 @@ SWEEP_SHAPES = [
     "2,4,512,64",
     "2,8,1024,64",
     "4,8,2048,128",
+    "1,4,4096,128",
+    "2,4,8192,128",
+    "2,8,16384,128",
 ]
 
 # Configs that are safe for small/medium shapes (no hardcoded seq_len assumptions)
@@ -1141,6 +1227,20 @@ def parse_args():
     parser.add_argument("--topk", type=int, default=10)
     parser.add_argument("--enable-block-reorder", action="store_true",
                         help="Enable block-level query reordering via spectral wave-overlap.")
+    parser.add_argument(
+        "--trim-outliers",
+        dest="trim_outliers",
+        action="store_true",
+        default=True,
+        help="Enable MAD-based outlier rejection on iteration times (requires repeat>=5).",
+    )
+    parser.add_argument(
+        "--no-trim-outliers",
+        dest="trim_outliers",
+        action="store_false",
+        help="Disable outlier rejection; use simple mean of all iteration times.",
+    )
+    parser.set_defaults(trim_outliers=True)
     parser.add_argument("--block-reorder-mode", default="wave_overlap",
                         choices=sorted(set(["wave_overlap"] + list(REORDER_REGISTRY.keys()))),
                         help="Reorder mode (default: wave_overlap).")

@@ -30,8 +30,28 @@ metadata:
 ### 一键采集（flex + manual 对比）
 
 ```bash
+# 默认（S=8192）
+python3 flex_attention_run_script.py --mode msprof
+
+# 指定 shape
 python3 flex_attention_run_script.py --mode msprof --shape 4,8,2048,128
+
+# 长序列（large suite）
+python3 flex_attention_run_script.py --mode msprof --shape 2,4,8192,128
 ```
+
+### 双卡 msprof 采集
+
+```bash
+# 在指定卡上采集（单卡）
+python3 flex_attention_run_script.py --mode msprof --device npu:0 --shape 2,4,8192,128
+
+# 双卡各自独立采集
+python3 flex_attention_run_script.py --mode msprof --device npu:0 --shape 2,4,8192,128
+python3 flex_attention_run_script.py --mode msprof --device npu:1 --shape 2,4,8192,128
+```
+
+> **注意：** msprof 模式不支持 `--device npu:0,npu:1` 逗号分隔多设备，需要分别执行。benchmark 模式支持多设备自动循环。
 
 ### ⚠️ Reorder 性能测试：必须排除重排计算开销
 
@@ -62,9 +82,10 @@ python3 flex_attention_run_script.py --mode msprof \
 
 **验证 reorder 开销是否被排除：**
 ```bash
-# 这两个数字应该非常接近（差异 < 2%）—— reorder 是纯 CPU 计算
-python3 flex_attention_run_script.py --shape 4,8,2048,128 --enable-block-reorder 2>&1 | grep "avg:"
-python3 flex_attention_run_script.py --shape 4,8,2048,128 2>&1 | grep "Flex Attention avg:"
+# 重排计算时间（CPU）与 kernel 时间分别显示，可直接对比：
+python3 flex_attention_run_script.py --shape 4,8,2048,128 --enable-block-reorder
+# 输出中会打印：
+#   ── reorder computation time (CPU): X.XXX ms | kernel time: X.XXX ms | comp/kernel ratio: X.XX%
 ```
 
 这会：
@@ -121,6 +142,8 @@ python3 flex_attention_run_script.py --mode msprof \
 python3 flex_attention_run_script.py --mode msprof \
   --shape 4,8,2048,128 --target flex
 ```
+
+> **异常值剔除**（`--trim-outliers`）仅用于 benchmark 模式，msprof 模式不适用。benchmark 模式下 repeat >= 5 时默认开启 MAD 异常值剔除。
 
 ### 采集后产出
 
@@ -364,10 +387,12 @@ AI CPU total | 0.800    | 0.050     | 16.0x
 **判定标准：**
 1. **hit_rate 变化**：看日志中 `Hit rate: X → Y`，如果 Y > X 说明重排改善了 KV block 连续性
 2. **kernel 时间变化**：`Flex+wave_overlap` vs `Flex Attention` 的 avg ms 对比
+3. **重排计算开销**：看 `reorder computation time (CPU)` 行，显示重排计算耗时、kernel 耗时、以及 comp/kernel ratio
 
 **msprof 表现：**
 - `Flex Attention` 和 `Flex+wave_overlap` 的时间差反映了 reorder 对 kernel 执行的影响
-- 注意：重排计算（`compute_and_set_pending_perm`）在 CPU 上执行，**不在** msprof 采集范围内
+- **重排计算时间**（`compute_and_set_pending_perm`）在 CPU 上执行，**不计入** kernel 时间，单独显示为 `reorder_comp`
+- 对比 `reorder_comp` 与 `flex_reorder` kernel 时间：如果 comp/kernel ratio > 10%，说明重排计算开销不可忽视
 - 如果 hit_rate 已经 100% 并且两个时间差异 < 2%：reorder 无额外收益（KV 访问已经连续）
 
 ```bash

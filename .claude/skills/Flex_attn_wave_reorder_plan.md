@@ -32,10 +32,10 @@ GPU 上一个 thread block 处理多个 Q blocks，Q 数据在 block 内连续�
 ```
 GPU (vllm-omni):  NPU (当前):
   wave[0..7]        program[0]
-  ↓                 ↓
+      ↓                 ↓
   8 Q blocks        1 Q block
   共享 KV cache     独立加载 KV
-  ↓                 ↓
+      ↓                 ↓
   reorder 有效       reorder 无效
 ```
 
@@ -54,7 +54,7 @@ Wave：program[w] → Q[perm[w*K..w*K+K-1]] → KV blocks → compute ×K → ou
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   flex_attention 调用                 │
+│                   flex_attention 调用               │
 ├─────────────────────────────────────────────────────┤
 │  1. compute_and_set_pending_perm(kv_indices)        │
 │     → 计算 mask-level perm，存入 side-channel        │

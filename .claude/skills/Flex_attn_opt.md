@@ -100,8 +100,14 @@ bash raw_flex/apply_raw.sh
 ### 单次测试
 
 ```bash
-# 默认 causal 掩码（flex vs manual 对比）
+# 默认 causal 掩码（flex vs manual 对比），默认 S=8192
+python3 flex_attention_run_script.py
+
+# 指定 shape
 python3 flex_attention_run_script.py --shape 4,8,2048,128
+
+# 长序列测试（large suite: 4K ~ 16K）
+python3 flex_attention_run_script.py --shape-suite large
 
 # 非因果掩码
 python3 flex_attention_run_script.py --shape 1,4,512,64 --sparse-config sliding_window_64
@@ -114,6 +120,29 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128 --no-compare
 
 # 指定精度
 python3 flex_attention_run_script.py --shape 4,8,2048,128 --dtype fp16
+```
+
+### 双卡测试
+
+```bash
+# 双卡并行测试：每个 shape 在两张卡上各跑一次
+python3 flex_attention_run_script.py --device npu:0,npu:1 --shape-suite large
+
+# 单卡（默认）
+python3 flex_attention_run_script.py --device npu:0
+```
+
+### 异常值剔除
+
+当 `--repeat >= 5` 时默认启用 MAD（Median Absolute Deviation）异常值剔除，自动丢弃明显偏离中位数的迭代耗时：
+
+```bash
+# 默认开启（repeat=10 >= 5）
+python3 flex_attention_run_script.py --warmup 5 --repeat 10
+# 输出示例：... avg: 11.890 ms (warmup=5, repeat=10, trimmed: 2/10 outliers dropped)
+
+# 关闭剔除
+python3 flex_attention_run_script.py --warmup 5 --repeat 10 --no-trim-outliers
 ```
 
 ### 全量基准
@@ -186,15 +215,32 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 shape=4,8,2048,128 causal bfloat16
   flex_attention:   9.123 ms
   manual_sdpa:      2.456 ms
-  flex_reorder:     N/A
+  flex_reorder:     8.901 ms
+  ── reorder computation time (CPU): 0.234 ms | kernel time: 8.901 ms | comp/kernel ratio: 2.63%
   ✅ 测试通过（allclose=True）
   max_abs_diff=0.000122, max_rel_diff=0.012%
 ```
 
 - `flex_attention` — 当前部署版本的 flex 性能
 - `manual_sdpa` — PyTorch 原生 SDPA（基线）
-- `flex_reorder` — block reorder 性能（仅 identity permutation 可用）
+- `flex_reorder` — block reorder 后的 kernel 时间（**不含**重排计算开销）
+- `reorder computation time (CPU)` — 重排计算本身耗时（CPU 侧），与 kernel 时间分开显示
+- `comp/kernel ratio` — 重排计算占 kernel 时间的比例；>10% 说明重排开销不可忽视
+- `trimmed: X/N outliers dropped` — 出现时表示 MAD 异常值剔除了 X 个偏离点
 - `max_abs_diff / max_rel_diff` — 与 manual 的精度差异
+
+### Shape Suite 一览
+
+| Suite | Shapes |
+|-------|--------|
+| `single` | 默认 shape（当前 `4,8,8192,128`） |
+| `small` | `(1,2,128,64)`, `(1,4,256,64)`, `(2,4,512,64)` |
+| `smoke` | `(1,4,512,64)`, `(2,8,1024,64)` + 默认 shape |
+| `large` | `(1,4,4096,128)`, `(1,4,8192,128)`, `(2,4,8192,128)`, `(2,8,16384,128)` |
+
+```bash
+python3 flex_attention_run_script.py --shape-suite large
+```
 
 ### reorder 相关参数
 
