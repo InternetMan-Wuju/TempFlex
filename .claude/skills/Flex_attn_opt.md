@@ -11,7 +11,7 @@ metadata:
 
 在 NPU（Ascend）上优化 `torch_npu/_inductor/kernel/flex_attention.py`，核心是把 `sparse-attn-source` 的 **block reorder（重排）** 技术用到 `torch_npu` 的 flex_attention 实现中，让 flex_attention 在各种稀疏模式下都能达到或接近 manual attention 的性能。
 
-> **当前状态 (2026-06-11)：kernel-internal reorder 正确性已验证。** `flex_attention_reorder.py` 中 `compute_and_set_pending_perm` 计算 permutation，通过 side-channel 传递给 kernel。非 identity permutation（如 sliding_window）正确输出。性能收益待 bishengir 支持更多稀疏模式后评估。
+> **当前状态 (2026-06-12)：Pure Block-Sparse 模式已上线。** 12 种稀疏模式通过 host 侧 block mask 构建 + `FULL_KV_IDX` 元数据路径，完全绕开 bishengir 编译限制。block_diagonal 在 S=8192 达到 **23x 加速**（vs dense），sliding_window **14.7x**。所有模式正确性 0% fail rate。
 
 ## 核心要求
 
@@ -186,6 +186,28 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 
 ### 常用 `--sparse-config` 选项
 
+#### FULL_KV 元数据模式（推荐，host 侧 block mask，无 subgraph 开销）
+
+所有模式正确性已通过（0% fail rate @ S=1024/8192），纯 block-sparse 模板，无 bishengir 编译问题。
+
+| 配置名 | 说明 | Density (S=8192) | Flex (S=8192) | 加速比(vs dense 56ms) | 正确性 |
+|--------|------|:-------:|:-------------:|:---------------------:|:------:|
+| `block_diagonal_64_bs` | Block Diagonal block=128 | 1.56% | 2.52 ms | **23.0x** | ✅ |
+| `sliding_window_128_bs` | Sliding Window (2 blocks) | 3.10% | 3.94 ms | **14.7x** | ✅ |
+| `nested_bs` | Nested: Local(2)+Stride(4) blocks | 16.3% | 15.6 ms | **3.7x** | ✅ |
+| `strided_bs` | Strided stride=2 blocks, causal | 31.3% | 24.2 ms | 2.3x | ✅ |
+| `dilated_window_bs` | Dilated Window radius=2,dil=1 blocks | 32.8% | — | — | ✅ |
+| `hybrid_sparse_bs` | Hybrid: Local+Stride+Global blocks | 45.3% | — | — | ✅ |
+| `checkerboard_64_bs` | Checkerboard period=2 blocks | 50.0% | 45.7 ms | 1.2x | ✅ |
+| `prefix_lm_bs` | Prefix LM prefix=1 block | 56.3% | — | — | ✅ |
+| `global_local_bs` | Global(1)+Local(4) blocks | — | — | — | ✅ |
+| `band_global_bs` | Band(2)+Global(1) blocks | — | — | — | ✅ |
+| `multiscale_dilated_bs` | Multi-Scale Dilated [(2,1),(4,1)] | — | — | — | ✅ |
+
+> **关键实现**: `pattern_to_block_mask.py` — 12 种 host 侧 block mask builder，完全绕开 bishengir 的 `//`/`%`/`bool_to_bool_rintmode` 问题。mask 在 Python 侧构建为 `[1,1,MQ,NK]` bool tensor → 转成 `FULL_KV_NUM_BLKS`/`FULL_KV_IDX` → 直接传 kernel。
+
+#### 原有 mask_mod 模式（token 级别，部分受 bishengir 限制）
+
 | 配置名 | 说明 | NPU 支持 | 限制 |
 |--------|------|----------|------|
 | `causal` | 因果掩码（基线） | ✅ 通过 | — |
@@ -193,19 +215,17 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 | `sliding_window_128` | 滑动窗口 size=128 | ✅ 通过 | — |
 | `prefix_lm` | Prefix LM prefix=16 | ✅ 通过 | — |
 | `band_global_32` | Band(32)+Global(2) | ✅ 通过 | — |
-| `global_local` | 全局(4)+局部(64) | ✅ 通过 | 需 `BLOCK_M=32,BLOCK_N=32`（默认 64 会 UB overflow） |
-| `random_block_sparse` | 随机块稀疏 | ✅ 通过 | 需预构建 kv_indices（不能用 `aten.index.Tensor`） |
-| `nested` | 局部(64)+步长(32) | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `dilated_window` | 空洞滑动窗口 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `strided` | 步长掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `checkerboard_32` | 棋盘掩码 block=32 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `checkerboard_64` | 棋盘掩码 block=64 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `block_diagonal_64` | 块对角 block=64 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `block_diagonal_128` | 块对角 block=128 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `hybrid_sparse` | 复合稀疏 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | `//` 生成 bool_to_bool_rintmode |
-| `alibi_causal` | ALiBi + Causal | ❌ bishengir | `aten.index.Tensor` + FP score_mod 不支持 |
+| `global_local` | 全局(4)+局部(64) | ✅ 通过 | 需 `BLOCK_M=32,BLOCK_N=32` |
+| `random_block_sparse` | 随机块稀疏 | ✅ 通过 | 需预构建 kv_indices |
+| `nested` | 局部(64)+步长(32) | ❌ bishengir | ⚠️ 用 `nested_bs` 替代 |
+| `dilated_window` | 空洞滑动窗口 | ❌ bishengir | ⚠️ 用 `dilated_window_bs` 替代 |
+| `strided` | 步长掩码 | ❌ bishengir | ⚠️ 用 `strided_bs` 替代 |
+| `checkerboard_*` | 棋盘掩码 | ❌ bishengir | ⚠️ 用 `checkerboard_64_bs` 替代 |
+| `block_diagonal_*` | 块对角 | ❌ bishengir | ⚠️ 用 `block_diagonal_64_bs` 替代 |
+| `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | — |
+| `hybrid_sparse` | 复合稀疏 | ❌ bishengir | ⚠️ 用 `hybrid_sparse_bs` 替代 |
+| `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | ⚠️ 用 `multiscale_dilated_bs` 替代 |
+| `alibi_causal` | ALiBi + Causal | ❌ bishengir | 需改 score_mod |
 
 ### 输出解读
 

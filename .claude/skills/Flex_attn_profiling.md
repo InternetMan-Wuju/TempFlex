@@ -15,6 +15,16 @@ metadata:
 - 你想分析 kernel 耗时分布，定位是**计算瓶颈**还是**调度/拷贝瓶颈**
 - 你需要输出一份结构化的 flex vs manual profiling 对比报告
 
+## 当前性能状态 (2026-06-12)
+
+**Pure Block-Sparse 模式已上线。** 性能提升来源于跳过不必要的 KV block 计算。
+
+| 模式 | S=8192 Flex | vs Dense (56ms) | Density |
+|------|:----------:|:---------------:|:-------:|
+| block_diagonal_64_bs | 2.52 ms | **23.0x** | 1.56% |
+| sliding_window_128_bs | 3.94 ms | **14.7x** | 3.10% |
+| nested_bs | 15.6 ms | **3.7x** | 16.3% |
+
 ## 工作流总览
 
 ```
