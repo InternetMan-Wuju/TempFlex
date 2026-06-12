@@ -81,7 +81,7 @@ sparse_attention_report.md                         ← 最近一次性能报告
 sparse_attention_after_report.md                   ← 优化后的性能报告
 ```
 
-> ⚠️ **核心目标（block reorder）尚未完成。** 外部重排路径受限于 NPU 编译器，真正的性能提升需要 kernel 内部实现。
+> ⚠️ **Block reorder 可用但收益有限。** kernel-internal PERM reorder 受 NPU 编译器限制（S≥4096 死锁）。外部 Q reorder + pure block-sparse 可在所有规模使用，正确性已验证。
 
 ## 快速命令
 
@@ -175,36 +175,39 @@ python3 -c "from torch_npu._inductor.kernel.flex_attention_reorder import reorde
 ### 测试 reorder 开启/关闭对比
 
 ```bash
-# 开启 reorder（仅 identity permutation 生效）
-python3 flex_attention_run_script.py --shape 4,8,2048,128 --enable-block-reorder
+# 对 FULL_KV 模式开启 reorder
+python3 flex_attention_run_script.py --sparse-config block_diagonal_64_bs --enable-block-reorder
+
+# 对 random_block_sparse 开启 reorder
+python3 flex_attention_run_script.py --sparse-config random_block_sparse --enable-block-reorder
 
 # 关闭 reorder（默认）
-python3 flex_attention_run_script.py --shape 4,8,2048,128
+python3 flex_attention_run_script.py --sparse-config block_diagonal_64_bs
 ```
 
 ## 参数速查
 
 ### 常用 `--sparse-config` 选项
 
-#### FULL_KV 元数据模式（推荐，host 侧 block mask，无 subgraph 开销）
+#### FULL_KV 元数据模式（推荐，host 侧构建 block mask，绕开 bishengir）
 
-所有模式正确性已通过（0% fail rate @ S=1024/8192），纯 block-sparse 模板，无 bishengir 编译问题。
+所有模式正确性已验证（0% fail rate @ S=1024），纯 block-sparse 模板 + `subgraphs=[]`，无 token 级 mask_mod 开销。稀疏度越低加速越大。
 
-| 配置名 | 说明 | Density (S=8192) | Flex (S=8192) | 加速比(vs dense 56ms) | 正确性 |
-|--------|------|:-------:|:-------------:|:---------------------:|:------:|
-| `block_diagonal_64_bs` | Block Diagonal block=128 | 1.56% | 2.52 ms | **23.0x** | ✅ |
-| `sliding_window_128_bs` | Sliding Window (2 blocks) | 3.10% | 3.94 ms | **14.7x** | ✅ |
-| `nested_bs` | Nested: Local(2)+Stride(4) blocks | 16.3% | 15.6 ms | **3.7x** | ✅ |
-| `strided_bs` | Strided stride=2 blocks, causal | 31.3% | 24.2 ms | 2.3x | ✅ |
-| `dilated_window_bs` | Dilated Window radius=2,dil=1 blocks | 32.8% | — | — | ✅ |
-| `hybrid_sparse_bs` | Hybrid: Local+Stride+Global blocks | 45.3% | — | — | ✅ |
-| `checkerboard_64_bs` | Checkerboard period=2 blocks | 50.0% | 45.7 ms | 1.2x | ✅ |
-| `prefix_lm_bs` | Prefix LM prefix=1 block | 56.3% | — | — | ✅ |
-| `global_local_bs` | Global(1)+Local(4) blocks | — | — | — | ✅ |
-| `band_global_bs` | Band(2)+Global(1) blocks | — | — | — | ✅ |
-| `multiscale_dilated_bs` | Multi-Scale Dilated [(2,1),(4,1)] | — | — | — | ✅ |
+| 配置名 | Density (S=1024) | S=1024 Flex | S=8192 Flex | vs Dense(S=8192) | 正确性 |
+|--------|:-------:|:-----------:|:-----------:|:----------------:|:------:|
+| `block_diagonal_64_bs` | 12.5% | 0.57 ms | 2.52 ms | **23.0x** | ✅ |
+| `sliding_window_128_bs` | 23.4% | 0.76 ms | 3.94 ms | **14.7x** | ✅ |
+| `nested_bs` | 39.1% | 0.96 ms | 15.6 ms | **3.7x** | ✅ |
+| `strided_bs` | 31.3% | 0.83 ms | 24.2 ms | 2.3x | ✅ |
+| `checkerboard_64_bs` | 50.0% | 1.10 ms | — | — | ✅ |
+| `dilated_window_bs` | 32.8% | 0.90 ms | — | — | ✅ |
+| `hybrid_sparse_bs` | 45.3% | 1.03 ms | — | — | ✅ |
+| `prefix_lm_bs` | 56.3% | 1.20 ms | — | — | ✅ |
+| `global_local_bs` | — | — | — | — | ✅ |
+| `band_global_bs` | — | — | — | — | ✅ |
+| `multiscale_dilated_bs` | — | — | — | — | ✅ |
 
-> **关键实现**: `pattern_to_block_mask.py` — 12 种 host 侧 block mask builder，完全绕开 bishengir 的 `//`/`%`/`bool_to_bool_rintmode` 问题。mask 在 Python 侧构建为 `[1,1,MQ,NK]` bool tensor → 转成 `FULL_KV_NUM_BLKS`/`FULL_KV_IDX` → 直接传 kernel。
+> **性能规律**：加速比 ≈ 1/density。block_diagonal（1.56% dense @ S=8192）→ 23x，checkerboard（50% dense）→ 仅 1.2x。越稀疏越划算。
 
 #### 原有 mask_mod 模式（token 级别，部分受 bishengir 限制）
 
@@ -215,17 +218,17 @@ python3 flex_attention_run_script.py --shape 4,8,2048,128
 | `sliding_window_128` | 滑动窗口 size=128 | ✅ 通过 | — |
 | `prefix_lm` | Prefix LM prefix=16 | ✅ 通过 | — |
 | `band_global_32` | Band(32)+Global(2) | ✅ 通过 | — |
-| `global_local` | 全局(4)+局部(64) | ✅ 通过 | 需 `BLOCK_M=32,BLOCK_N=32` |
+| `global_local` | 全局(4)+局部(64) | ✅ 通过 | — |
 | `random_block_sparse` | 随机块稀疏 | ✅ 通过 | 需预构建 kv_indices |
-| `nested` | 局部(64)+步长(32) | ❌ bishengir | ⚠️ 用 `nested_bs` 替代 |
-| `dilated_window` | 空洞滑动窗口 | ❌ bishengir | ⚠️ 用 `dilated_window_bs` 替代 |
-| `strided` | 步长掩码 | ❌ bishengir | ⚠️ 用 `strided_bs` 替代 |
-| `checkerboard_*` | 棋盘掩码 | ❌ bishengir | ⚠️ 用 `checkerboard_64_bs` 替代 |
-| `block_diagonal_*` | 块对角 | ❌ bishengir | ⚠️ 用 `block_diagonal_64_bs` 替代 |
-| `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | — |
-| `hybrid_sparse` | 复合稀疏 | ❌ bishengir | ⚠️ 用 `hybrid_sparse_bs` 替代 |
-| `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | ⚠️ 用 `multiscale_dilated_bs` 替代 |
-| `alibi_causal` | ALiBi + Causal | ❌ bishengir | 需改 score_mod |
+| `nested` | 局部(64)+步长(32) | ❌ bishengir | ⚠️ 用 `nested_bs` |
+| `dilated_window` | 空洞滑动窗口 | ❌ bishengir | ⚠️ 用 `dilated_window_bs` |
+| `strided` | 步长掩码 | ❌ bishengir | ⚠️ 用 `strided_bs` |
+| `checkerboard_*` | 棋盘掩码 | ❌ bishengir | ⚠️ 用 `checkerboard_64_bs` |
+| `block_diagonal_*` | 块对角 | ❌ bishengir | ⚠️ 用 `block_diagonal_64_bs` |
+| `uniform_doc_256` | 统一文档掩码 | ❌ bishengir | ⚠️ 需 doc boundary 对齐 block（暂无 `_bs` 版本） |
+| `hybrid_sparse` | 复合稀疏 | ❌ bishengir | ⚠️ 用 `hybrid_sparse_bs` |
+| `multiscale_dilated` | 多尺度空洞 | ❌ bishengir | ⚠️ 用 `multiscale_dilated_bs` |
+| `alibi_causal` | ALiBi + Causal | ❌ bishengir | score_mod 不支持 FP 操作，需 NPU 编译器修复 |
 
 ### 输出解读
 
@@ -265,10 +268,12 @@ python3 flex_attention_run_script.py --shape-suite large
 ### reorder 相关参数
 
 ```bash
---enable-block-reorder         # 开启 block reorder（仅 identity permutation 生效）
+--enable-block-reorder         # 开启 Q-block reorder（外部 torch.gather + pure block-sparse）
 --block-reorder-mode wave_overlap  # 重排算法（默认 wave_overlap）
---wave-size 128                # wave 分区大小
+--wave-size 132                # wave 分区大小
 ```
+
+> **当前状态**：外部 Q reorder 已实现（vllm-omni 方案），配合 `PURE_BLOCK_SPARSE` 模板使用。对有 locality 的稀疏模式（block_diagonal, sliding_window）可进一步提升 KV cache 命中率。对 FULL_KV 模式（`*_bs`）和 `random_block_sparse` 均可用。
 
 ### msprof 性能分析入口
 
@@ -294,7 +299,7 @@ python3 summarize_msprof.py msprof_out/<timestamp>/
 
 ### reorder 不可用
 
-当前 `flex_attention_reorder.py` 已实现外部重排算法，但仅对 identity permutation 生效（causal 等）。非 identity permutation 需要 kernel 内部实现，详见 [[flex-attn-reorder-experience]]。
+当前外部 Q reorder + pure block-sparse 流程对所有 FULL_KV 模式（`*_bs`）可用。kernel-internal PERM reorder 在 S≤2048 可用，S≥4096 被 NPU 编译器限制阻塞。详见 [[flex-attn-perm-reorder-implementation]]。
 
 ### 非 causal 编译报错
 
@@ -327,7 +332,8 @@ bash raw_flex/apply_raw.sh && python3 -c "import torch_npu._inductor.kernel.flex
 
 | 版本 | 特点 | 状态 |
 |------|------|------|
-| `raw_flex`（原始） | 无优化，所有场景走通用 block-sparse Triton 模板 | ✅ 可用（基线） |
-| `Newest`（开发版） | 新增 debug hook + reorder 相关改动 | ✅ 部署可用 |
-| **block reorder（外部）** | 对 Q/KV blocks 做外部重排，仅 identity permutation 生效 | ⚠️ 部分可用 |
-| **block reorder（kernel 内部）** | 修改 kernel 模板，通过 side-channel 传递 PERM 实现重排 | ✅ 正确性已验证 |
+| `raw_flex`（原始） | 标准 generic + causal fastpath 模板 | ✅ 可用（基线） |
+| `Newest`（开发版） | PERM 模板 + pure block-sparse 模板 + 12 种 FULL_KV 模式 | ✅ 部署可用 |
+| **pure block-sparse（外部 Q reorder）** | Host 侧 block mask → FULL_KV 元数据 → 无 subgraph kernel | ✅ 所有规模可用 |
+| **block reorder（kernel 内部 PERM）** | 修改 kernel 模板，通过 side-channel 传递 PERM | ⚠️ S≤2048 可用 |
+| `pattern_to_block_mask.py` | 12 种 host 侧 block mask builder | ✅ 可用 |
