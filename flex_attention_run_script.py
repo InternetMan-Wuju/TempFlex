@@ -354,6 +354,7 @@ def make_default_args(**overrides):
         continue_on_shape_error=True,
         selected_shapes=None,
         trim_outliers=True,
+        causal_fastpath=True,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -389,8 +390,12 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimi
     if optimizations is not None:
         kernel_options_extra.update(optimizations)
     elif mask_mod is causal_mask:
-        kernel_options_extra["ROWS_GUARANTEED_SAFE"] = True
-        kernel_options_extra["BLOCKS_ARE_CONTIGUOUS"] = True
+        if getattr(args, "causal_fastpath", True):
+            kernel_options_extra["ROWS_GUARANTEED_SAFE"] = True
+            kernel_options_extra["BLOCKS_ARE_CONTIGUOUS"] = True
+            print("[fastpath] causal dense fastpath enabled (ROWS_GUARANTEED_SAFE + BLOCKS_ARE_CONTIGUOUS)")
+        else:
+            print("[fastpath] causal fastpath DISABLED, using generic block-sparse template")
     if args.prescale_qk:
         kernel_options_extra["PRESCALE_QK"] = True
     if args.num_warps is not None:
@@ -1241,6 +1246,20 @@ def parse_args():
         help="Disable outlier rejection; use simple mean of all iteration times.",
     )
     parser.set_defaults(trim_outliers=True)
+    parser.add_argument(
+        "--causal-fastpath",
+        dest="causal_fastpath",
+        action="store_true",
+        default=True,
+        help="Enable causal dense fastpath for identity+causal (ROWS_GUARANTEED_SAFE + BLOCKS_ARE_CONTIGUOUS).",
+    )
+    parser.add_argument(
+        "--no-causal-fastpath",
+        dest="causal_fastpath",
+        action="store_false",
+        help="Disable causal fastpath to measure generic block-sparse template overhead.",
+    )
+    parser.set_defaults(causal_fastpath=True)
     parser.add_argument("--block-reorder-mode", default="wave_overlap",
                         choices=sorted(set(["wave_overlap"] + list(REORDER_REGISTRY.keys()))),
                         help="Reorder mode (default: wave_overlap).")

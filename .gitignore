@@ -1,7 +1,13 @@
-/aboutCodex
-/Newest/backups
-/torch_compile_debug
-/msprof_out
-/temp
-sparse-attn-source/
+# Generated at runtime
+torch_compile_debug/
+msprof_out/
 __pycache__/
+*.pyc
+
+# Triton cache
+/root/.triton/
+
+# IDE
+.idea/
+.vscode/
+sparse-attn-source/
