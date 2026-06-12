@@ -378,6 +378,99 @@ _SPARSE_CONFIGS = {
         },
         "build_block_mask": True,
     },
+
+    # ── FULL_KV metadata patterns (no mask_mod subgraph) ──
+    # These bypass bishengir compiler bugs by building the block mask
+    # entirely on the host side and passing it as FULL_KV metadata.
+    # No mask_mod function is used — the kernel only needs block-sparse data.
+    "block_diagonal_64_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,  # ALL blocks go through FULL_KV
+        "description": "Block Diagonal (block=64, FULL_KV metadata)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "block_diagonal"},
+    },
+    "checkerboard_64_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Checkerboard (period=2 blocks, FULL_KV metadata)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "checkerboard", "period_blocks": 2},
+    },
+    "strided_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Strided (stride=2 blocks, causal, FULL_KV)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "strided", "stride_blocks": 2, "causal": True},
+    },
+    "dilated_window_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "dilated_window", "radius_blocks": 2, "dilation_blocks": 1, "causal": True},
+    },
+    "nested_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "nested", "local_blocks": 2, "stride_blocks": 4, "causal": True},
+    },
+    "hybrid_sparse_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "hybrid_sparse", "local_blocks": 2, "stride_blocks": 4, "global_every_blocks": 8, "causal": True},
+    },
+    "global_local_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Global(1) + Local(4) blocks, causal, FULL_KV",
+        "optimizations": {"BLOCK_M": 32, "BLOCK_N": 32},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "global_local", "global_blocks": 1, "local_blocks": 4, "causal": True},
+    },
+    "multiscale_dilated_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "multiscale_dilated", "scales": [(2, 1), (4, 1)], "causal": True},
+    },
+    "sliding_window_128_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Sliding Window (2 blocks, FULL_KV metadata)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "sliding_window", "window_blocks": 2, "causal": True},
+    },
+    "prefix_lm_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Prefix LM (prefix=1 block, FULL_KV metadata)",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "prefix_lm", "prefix_blocks": 1},
+    },
+    "band_global_bs": {
+        "score_mod": identity_score,
+        "mask_mod": None,
+        "description": "Band(2) + Global(1) blocks, FULL_KV metadata",
+        "optimizations": {},
+        "use_full_kv_metadata": True,
+        "block_mask_params": {"mode": "band_global", "bandwidth_blocks": 2, "global_blocks": 1},
+    },
 }
 
 
