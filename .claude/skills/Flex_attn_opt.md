@@ -191,23 +191,27 @@ python3 flex_attention_run_script.py --sparse-config block_diagonal_64_bs
 
 #### FULL_KV 元数据模式（推荐，host 侧构建 block mask，绕开 bishengir）
 
-所有模式正确性已验证（0% fail rate @ S=1024），纯 block-sparse 模板 + `subgraphs=[]`，无 token 级 mask_mod 开销。稀疏度越低加速越大。
+所有模式 S=1024 正确性已通过（allclose=1, 0% fail rate）。性能数据来自 2026-06-12 benchmark。
 
-| 配置名 | Density (S=1024) | S=1024 Flex | S=8192 Flex | vs Dense(S=8192) | 正确性 |
-|--------|:-------:|:-----------:|:-----------:|:----------------:|:------:|
-| `block_diagonal_64_bs` | 12.5% | 0.57 ms | 2.52 ms | **23.0x** | ✅ |
-| `sliding_window_128_bs` | 23.4% | 0.76 ms | 3.94 ms | **14.7x** | ✅ |
-| `nested_bs` | 39.1% | 0.96 ms | 15.6 ms | **3.7x** | ✅ |
-| `strided_bs` | 31.3% | 0.83 ms | 24.2 ms | 2.3x | ✅ |
-| `checkerboard_64_bs` | 50.0% | 1.10 ms | — | — | ✅ |
-| `dilated_window_bs` | 32.8% | 0.90 ms | — | — | ✅ |
-| `hybrid_sparse_bs` | 45.3% | 1.03 ms | — | — | ✅ |
-| `prefix_lm_bs` | 56.3% | 1.20 ms | — | — | ✅ |
-| `global_local_bs` | — | — | — | — | ✅ |
-| `band_global_bs` | — | — | — | — | ✅ |
-| `multiscale_dilated_bs` | — | — | — | — | ✅ |
+| 配置名 | S=1024 Flex | S=1024 Manual | S=8192 Flex | vs Raw(S=8192) | 正确性 |
+|--------|:-----------:|:-------------:|:-----------:|:--------------:|:------:|
+| `block_diagonal_64_bs` | 0.57 ms | 0.86 ms | 2.52 ms | — | ✅ |
+| `sliding_window_128_bs` | 0.72 ms | 0.92 ms | 3.94 ms | — | ✅ |
+| `nested_bs` | 0.95 ms | 0.84 ms | 15.7 ms | — | ✅ |
+| `strided_bs` | 0.82 ms | 0.85 ms | ⏱ timeout | — | ✅ |
+| `dilated_window_bs` | 0.86 ms | 0.86 ms | 5.19 ms | — | ✅ |
+| `hybrid_sparse_bs` | 1.03 ms | 0.86 ms | 20.0 ms | — | ✅ |
+| `checkerboard_64_bs` | 1.10 ms | 0.87 ms | ⏱ timeout | — | ✅ |
+| `prefix_lm_bs` | 1.20 ms | 0.85 ms | ⏱ timeout | — | ✅ |
 
-> **性能规律**：加速比 ≈ 1/density。block_diagonal（1.56% dense @ S=8192）→ 23x，checkerboard（50% dense）→ 仅 1.2x。越稀疏越划算。
+#### Raw vs Newest 对比（原有模式）
+
+| 配置名 | Raw S=1024 | Newest S=1024 | 加速 | Raw S=8192 | Newest S=8192 | 加速 |
+|--------|:----------:|:-------------:|:----:|:----------:|:-------------:|:----:|
+| `causal` | 4.41 ms | 2.68 ms | **1.6x** | 67.8 ms | 56.2 ms | **1.2x** |
+| `random_block_sparse` | 4.30 ms | 2.67 ms | **1.6x** | 67.9 ms | 56.3 ms | **1.2x** |
+
+> Newest 对比 Raw 在相同模式上有 **1.2x–1.6x 加速**（来自 causal fastpath 优化 + BLOCK_M/BLOCK_N 默认 64+subgraph 编译改进）。FULL_KV 模式在此基础上通过跳过不需要的 KV blocks 获得额外加速（block_diagonal @ S=8192 比 Newest causal 快 22x）。
 
 #### 原有 mask_mod 模式（token 级别，部分受 bishengir 限制）
 
