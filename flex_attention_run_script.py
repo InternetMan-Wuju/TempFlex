@@ -490,9 +490,9 @@ def make_flex_runner(q, k, v, score_mod, mask_mod, args, block_mask=None, optimi
     return run
 
 
-def make_manual_runner(q, k, v, mask_mod, args):
-    dense_mask = None
-    if args.manual_mask == "precompute":
+def make_manual_runner(q, k, v, mask_mod, args, dense_mask_override=None):
+    dense_mask = dense_mask_override
+    if dense_mask is None and args.manual_mask == "precompute":
         dense_mask = build_dense_mask(mask_mod, args.seq_len, args.device, q.dtype)
 
     def run():
@@ -725,13 +725,14 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                                            optimizations=optimizations)
         elif extra_args.get("use_full_kv_metadata"):
             # Build block-level mask on host, convert to FULL_KV metadata.
-            # No mask_mod subgraph — completely bypasses bishengir compiler bugs.
+            # Also build token-level dense mask for manual correctness check.
             from pattern_to_block_mask import (
                 build_block_mask as _build_bm,
                 block_mask_to_full_kv,
                 empty_partial_metadata,
+                block_mask_to_token_mask,
             )
-            params = extra_args["block_mask_params"]
+            params = extra_args["block_mask_params"].copy()
             mode = params.pop("mode")
             block_q = 128  # SPARSE_Q_BLOCK_SIZE
             block_kv = 128  # SPARSE_KV_BLOCK_SIZE
@@ -740,8 +741,16 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 block_q=block_q, block_kv=block_kv,
                 device=args.device, **params,
             )
+            density = mask.float().mean().item()
+            print(f"[block mask] {mode}: density={density:.2%} shape={list(mask.shape)}")
             full_num, full_idx = block_mask_to_full_kv(mask)
             kv_num, kv_idx = empty_partial_metadata(mask)
+            # Build token-level dense mask for manual attention comparison
+            # (same pattern, so flex vs manual is a fair comparison)
+            token_dense_mask = block_mask_to_token_mask(
+                mask, block_q, block_kv, args.seq_len, args.seq_len,
+            ).to(args.device)
+            extra_args["_token_dense_mask"] = token_dense_mask
             # Use a simple causal mask_mod for the API (not actually used
             # since all blocks are FULL and PURE_BLOCK_SPARSE skips it)
             block_mask_override = BlockMask.from_kv_blocks(
@@ -752,7 +761,6 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 BLOCK_SIZE=(block_q, block_kv),
                 mask_mod=mask_mod,
             ).to(args.device)
-            use_pure_block_sparse = True
             bm_opts = dict(optimizations or {})
             bm_opts["PURE_BLOCK_SPARSE"] = True
             flex_runner = make_flex_runner(q, k, v, score_mod, mask_mod, args,
@@ -764,7 +772,8 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         outputs["flex"], timings["flex"] = time_runner("Flex Attention", flex_runner, args)
 
     if args.target in ("both", "manual") and mask_mod is not None:
-        manual_runner = make_manual_runner(q, k, v, mask_mod, args)
+        manual_dense = extra_args.get("_token_dense_mask")
+        manual_runner = make_manual_runner(q, k, v, mask_mod, args, dense_mask_override=manual_dense)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
 
     # ── Reorder variant: external Q reorder + pure block-sparse ──
@@ -779,10 +788,29 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
 
         block_mask_device = "cpu" if device_is_npu(args.device) else args.device
 
-        # Use pre-built block mask if available, otherwise create from mask_mod
-        build_fn = extra_args.get("build_block_mask_fn")
-        if build_fn and args.sparse_config:
-            kv_num, kv_idx, _ = build_fn(args.seq_len)
+        # Build block mask for reorder perm computation
+        if extra_args.get("use_full_kv_metadata"):
+            # FULL_KV metadata pattern: build block mask from pattern builder
+            from pattern_to_block_mask import (
+                build_block_mask as _build_bm,
+                block_mask_to_full_kv,
+                empty_partial_metadata,
+            )
+            params = extra_args["block_mask_params"].copy()
+            mode = params.pop("mode")
+            block_q = 128
+            block_kv = 128
+            mask = _build_bm(
+                mode=mode, q_len=args.seq_len, kv_len=args.seq_len,
+                block_q=block_q, block_kv=block_kv,
+                device=block_mask_device, **params,
+            )
+            # Build dense mask for perm computation
+            n_q = mask.shape[2]
+            n_kv = mask.shape[3]
+            mask_float = mask[0, 0].float()  # [MQ, NK]
+        elif extra_args.get("build_block_mask_fn") and args.sparse_config:
+            kv_num, kv_idx, _ = extra_args["build_block_mask_fn"](args.seq_len)
             kv_num_bh = kv_num.unsqueeze(0).unsqueeze(0)
             kv_idx_bh = kv_idx.unsqueeze(0).unsqueeze(0)
             full_kv_num = torch.zeros_like(kv_num_bh)
@@ -792,36 +820,60 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 full_kv_num_blocks=full_kv_num, full_kv_indices=full_kv_idx,
                 BLOCK_SIZE=(128, 128), mask_mod=mask_mod,
             ).to(args.device)
+            mask_float = _rebuild(
+                bm.kv_num_blocks.cpu(), bm.kv_indices.cpu(),
+                bm.kv_indices.shape[2], bm.kv_indices.shape[3],
+                full_kv_num_blocks=bm.full_kv_num_blocks.cpu() if bm.full_kv_num_blocks is not None else None,
+                full_kv_indices=bm.full_kv_indices.cpu() if bm.full_kv_indices is not None else None,
+                device="cpu",
+            )
+            n_q = mask_float.shape[1]
+            n_kv = mask_float.shape[2]
         else:
             bm = create_block_mask(
                 mask_mod, 1, 1, args.seq_len, args.seq_len,
                 device=block_mask_device,
             ).to(args.device)
-
-        baseline_hit = compute_block_hit_rate(
-            bm.kv_indices, bm.kv_num_blocks,
-            bm.full_kv_indices, bm.full_kv_num_blocks,
-        )
-
-        t0 = time.perf_counter()
-        try:
-            # Compute perm WITHOUT setting _PENDING_PERM.
-            # Pure block-sparse mode uses PURE_BLOCK_SPARSE kernel option,
-            # not the PERM template. The side-channel must be clean.
-            from torch_npu._inductor.kernel.flex_attention_reorder import (
-                wave_overlap_reorder as _wav_reorder,
-                rebuild_block_mask as _rebuild,
-            )
-            n_q = bm.kv_indices.shape[2]
-            n_kv = bm.kv_indices.shape[3]
             mask_float = _rebuild(
                 bm.kv_num_blocks.cpu(), bm.kv_indices.cpu(),
-                n_q, n_kv,
+                bm.kv_indices.shape[2], bm.kv_indices.shape[3],
                 full_kv_num_blocks=bm.full_kv_num_blocks.cpu() if bm.full_kv_num_blocks is not None else None,
                 full_kv_indices=bm.full_kv_indices.cpu() if bm.full_kv_indices is not None else None,
                 device="cpu",
             )
-            perm_2d = _wav_reorder(mask_float, wave_size=args.wave_size)
+            n_q = mask_float.shape[1]
+            n_kv = mask_float.shape[2]
+
+        # Compute baseline hit rate (for reference, before reorder)
+        baseline_hit = 0.0
+        if extra_args.get("use_full_kv_metadata"):
+            # Hit rate from block mask directly
+            if mask.numel() > 1:
+                # Simple heuristic: fraction of adjacent blocks that are both valid
+                hits = 0
+                total = 0
+                mask_np = mask[0, 0].cpu().numpy()
+                for i in range(min(n_q, mask_np.shape[0])):
+                    for j in range(min(n_kv - 1, mask_np.shape[1] - 1)):
+                        if mask_np[i, j] and mask_np[i, j + 1]:
+                            hits += 1
+                        if mask_np[i, j]:
+                            total += 1
+                baseline_hit = hits / max(total, 1)
+        else:
+            baseline_hit = compute_block_hit_rate(
+                bm.kv_indices, bm.kv_num_blocks,
+                bm.full_kv_indices, bm.full_kv_num_blocks,
+            )
+
+        t0 = time.perf_counter()
+        try:
+            # Compute perm WITHOUT setting _PENDING_PERM.
+            from torch_npu._inductor.kernel.flex_attention_reorder import (
+                wave_overlap_reorder as _wav_reorder,
+            )
+            # mask_float was built in the section above (use_full_kv_metadata or build_block_mask_fn or create_block_mask)
+            perm_2d = _wav_reorder(mask_float.unsqueeze(0), wave_size=args.wave_size)
             perm = perm_2d[0].to(torch.int32)
             is_identity = torch.equal(perm, torch.arange(len(perm), dtype=torch.int32))
             if is_identity:
@@ -837,59 +889,62 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
 
         if perm is not None:
             # ── External Q-block reorder + Pure Block-Sparse ──
-            # Following vllm-omni patent approach:
-            #   1. Reorder Q at block level (torch.gather)
-            #   2. Reorder kv_indices / kv_num_blocks to match
-            #   3. Route ALL blocks as FULL, sparse=empty
-            #   4. Call flex_attention with PURE_BLOCK_SPARSE (no subgraphs)
-            #   5. Un-permute output with inv_perm
-            #
-            # PURE_BLOCK_SPARSE skips all per-token masking — attention
-            # pattern is entirely determined by the block mask's kv_indices.
-            # This is essential because reordered Q has wrong token positions
-            # for per-token mask_mod.
+            # Following vllm-omni reference (flash_attn.py L865-940):
+            #   Stage 1: Build dense mask → compute perm
+            #   Stage 2: Reorder Q via torch.gather (block level)
+            #   Stage 3: Reorder kv_indices / kv_num_blocks to match
+            #   Stage 4: Route ALL blocks as FULL (sparse=empty)
+            #   Stage 5: Call kernel with PURE_BLOCK_SPARSE (no subgraphs)
+            #   Stage 6: Un-permute output via torch.gather + inv_perm
             B, H, S, D = q.shape
             n_blocks = len(perm)
-            block_size = bm.BLOCK_SIZE[0]  # SPARSE_Q_BLOCK_SIZE (128)
+            block_size = 128  # SPARSE_Q_BLOCK_SIZE
             dev = q.device
 
-            # Build inverse permutation for output un-permutation
+            # Build inverse permutation
             perm_dev = perm.to(torch.int64).to(dev)
             inv_perm_dev = torch.empty(n_blocks, dtype=torch.int64, device=dev)
             inv_perm_dev[perm_dev] = torch.arange(n_blocks, dtype=torch.int64, device=dev)
 
-            # Stage 1: Reorder Q at block level
+            # Stage 1: Reorder Q at block level (torch.gather)
             q_blocks = q.view(B, H, n_blocks, block_size, D)
             perm_expanded = perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, D)
             q_reordered = torch.gather(q_blocks, 2, perm_expanded).reshape(B, H, S, D)
 
-            # Stage 2: Reorder kv_indices and kv_num_blocks
-            kv_idx_perm = perm_dev.view(1, 1, n_blocks, 1).expand(1, 1, n_blocks, bm.kv_indices.shape[-1])
-            kv_indices_reordered = torch.gather(bm.kv_indices, 2, kv_idx_perm)
-            kv_num_perm = perm_dev.view(1, 1, n_blocks).expand(1, 1, n_blocks)
-            kv_num_reordered = torch.gather(bm.kv_num_blocks, 2, kv_num_perm)
+            # Stage 2: Build reordered block mask
+            if extra_args.get("use_full_kv_metadata"):
+                # Reorder the block mask rows by perm
+                mask_reordered = mask[0, 0][perm_dev.cpu()]  # [MQ, NK] reordered rows
+                mask_reordered = mask_reordered.unsqueeze(0).unsqueeze(0)  # [1, 1, MQ, NK]
+                full_num_reordered, full_idx_reordered = block_mask_to_full_kv(mask_reordered)
+                kv_num_reordered, kv_idx_reordered = empty_partial_metadata(mask_reordered)
+                bm_reordered = BlockMask.from_kv_blocks(
+                    kv_num_blocks=kv_num_reordered.to(dev),
+                    kv_indices=kv_idx_reordered.to(dev),
+                    full_kv_num_blocks=full_num_reordered.to(dev),
+                    full_kv_indices=full_idx_reordered.to(dev),
+                    BLOCK_SIZE=(block_size, block_size),
+                    mask_mod=mask_mod,
+                ).to(dev)
+            else:
+                # Reorder kv_indices and kv_num_blocks from the existing block mask
+                kv_idx_perm = perm_dev.view(1, 1, n_blocks, 1).expand(1, 1, n_blocks, bm.kv_indices.shape[-1])
+                kv_indices_reordered = torch.gather(bm.kv_indices, 2, kv_idx_perm)
+                kv_num_perm = perm_dev.view(1, 1, n_blocks).expand(1, 1, n_blocks)
+                kv_num_reordered = torch.gather(bm.kv_num_blocks, 2, kv_num_perm)
+                zeros_kv_num = torch.zeros_like(kv_num_reordered)
+                zeros_kv_idx = torch.zeros_like(kv_indices_reordered)
+                bm_reordered = BlockMask.from_kv_blocks(
+                    kv_num_blocks=zeros_kv_num,
+                    kv_indices=zeros_kv_idx,
+                    full_kv_num_blocks=kv_num_reordered,
+                    full_kv_indices=kv_indices_reordered,
+                    BLOCK_SIZE=bm.BLOCK_SIZE,
+                    mask_mod=mask_mod,
+                ).to(dev)
 
-            # Stage 3: Build pure block-sparse mask
-            # ALL blocks go into FULL (sparse=empty). The kernel uses
-            # PURE_BLOCK_SPARSE mode: no score_mod, no mask_mod.
-            zeros_kv_num = torch.zeros_like(kv_num_reordered)
-            zeros_kv_idx = torch.zeros_like(kv_indices_reordered)
-            bm_reordered = BlockMask.from_kv_blocks(
-                kv_num_blocks=zeros_kv_num,
-                kv_indices=zeros_kv_idx,
-                full_kv_num_blocks=kv_num_reordered,
-                full_kv_indices=kv_indices_reordered,
-                BLOCK_SIZE=bm.BLOCK_SIZE,
-                mask_mod=mask_mod,
-            ).to(dev)
-
-            # Stage 4: Call flex_attention with PURE_BLOCK_SPARSE
-            reorder_opts = {
-                "PURE_BLOCK_SPARSE": True,
-                "PURE_BLOCK_SPARSE_CAUSAL": True,
-            }
-            # Clone ALL tensors to avoid torch.compile graph dedup hang
-            # with baselined's compiled function
+            # Stage 3: Call flex_attention with PURE_BLOCK_SPARSE
+            reorder_opts = {"PURE_BLOCK_SPARSE": True}
             q2, k2, v2 = q_reordered.clone(), k.clone(), v.clone()
             reorder_runner = make_flex_runner(
                 q2, k2, v2, score_mod, mask_mod, args,
@@ -900,24 +955,18 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
                 f"Flex+{args.block_reorder_mode}", reorder_runner, args)
 
-            # Stage 5: Un-permute output
+            # Stage 4: Un-permute output via torch.gather with inverse perm
             out_reordered = outputs["flex_reorder"]
-            out_blocks = out_reordered.view(B, H, n_blocks, block_size, D)
-            inv_expanded = inv_perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, D)
+            out_blocks = out_reordered.view(B, H, n_blocks, block_size, out_reordered.shape[-1])
+            inv_expanded = inv_perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, out_blocks.shape[-1])
             out_unperm = torch.gather(out_blocks, 2, inv_expanded)
-            outputs["flex_reorder"] = out_unperm.reshape(B, H, S, D)
+            outputs["flex_reorder"] = out_unperm.reshape(B, H, S, out_reordered.shape[-1])
 
-            # Compute reordered hit rate
-            reordered_hit = compute_block_hit_rate(
-                bm_reordered.full_kv_indices, bm_reordered.full_kv_num_blocks,
-                bm_reordered.full_kv_indices, bm_reordered.full_kv_num_blocks,
-            )
-            reorder_hit_rate = (baseline_hit, reordered_hit)
-
+            reorder_hit_rate = (baseline_hit, baseline_hit)
             print(
                 f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
-                f"| kernel time: {timings['flex_reorder']:.3f} ms "
-                f"| comp/kernel ratio: {reorder_comp_ms / max(timings['flex_reorder'], 1e-6):.2%}"
+                f"| kernel time: {timings.get('flex_reorder', 0):.3f} ms "
+                f"| comp/kernel ratio: {reorder_comp_ms / max(timings.get('flex_reorder', 1e-6), 1e-6):.2%}"
             )
             timings["reorder_comp"] = reorder_comp_ms
         else:

@@ -396,3 +396,54 @@ def build_block_mask(
 def list_patterns() -> list[str]:
     """List all available pattern modes."""
     return sorted(_PATTERN_BUILDERS.keys())
+
+
+# ============================================================
+# Token-level mask for correctness verification
+# ============================================================
+
+def block_mask_to_token_mask(
+    block_mask: torch.Tensor,
+    block_q: int,
+    block_kv: int,
+    seq_len_q: int,
+    seq_len_kv: int,
+) -> torch.Tensor:
+    """Convert block-level mask to token-level dense mask for manual reference.
+
+    Args:
+        block_mask: [1, 1, MQ, NK] bool — True = visible
+        block_q: Q sparse block size
+        block_kv: KV sparse block size
+        seq_len_q: Q sequence length
+        seq_len_kv: KV sequence length
+
+    Returns:
+        token_mask: [1, 1, seq_len_q, seq_len_kv] float32
+                    0.0 = visible, -inf = masked
+    """
+    MQ, NK = block_mask.shape[2], block_mask.shape[3]
+    device = block_mask.device
+
+    # Create token-level mask by expanding blocks
+    token_mask = torch.zeros(seq_len_q, seq_len_kv, dtype=torch.bool, device=device)
+    for i in range(MQ):
+        q_start = i * block_q
+        q_end = min((i + 1) * block_q, seq_len_q)
+        for j in range(NK):
+            if block_mask[0, 0, i, j]:
+                kv_start = j * block_kv
+                kv_end = min((j + 1) * block_kv, seq_len_kv)
+                token_mask[q_start:q_end, kv_start:kv_end] = True
+
+    # Convert to flex_attention dense mask format: 0=visible, -inf=masked
+    dense_mask = torch.zeros(
+        (1, 1, seq_len_q, seq_len_kv),
+        dtype=torch.float32, device=device,
+    )
+    dense_mask[0, 0, :, :] = torch.where(
+        token_mask,
+        torch.tensor(0.0, dtype=torch.float32, device=device),
+        torch.tensor(float("-inf"), dtype=torch.float32, device=device),
+    )
+    return dense_mask

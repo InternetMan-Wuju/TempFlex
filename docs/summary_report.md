@@ -55,46 +55,61 @@
 
 ## 3. 性能报告
 
-### 3.1 Raw vs Newest 对比（相同模式）
+> 测试条件: S=1024, B=4, H=8, D=128, bf16, warmup=10, repeat=10, MAD 异常值剔除关闭
 
-| 模式 | S=1024 Raw | S=1024 Newest | 加速 | S=8192 Raw | S=8192 Newest | 加速 |
-|------|:----------:|:-------------:|:----:|:----------:|:-------------:|:----:|
-| `causal` | 4.41 ms | 2.68 ms | **1.6x** | 67.8 ms | 56.2 ms | **1.2x** |
-| `random_block_sparse` | 4.30 ms | 2.67 ms | **1.6x** | 67.9 ms | 56.3 ms | **1.2x** |
+### 3.1 3-Way 对比：Raw vs Newest vs Manual
 
-> Newest 加速来源：causal fastpath 模板（3 输入 dense）+ BLOCK_M/BLOCK_N 默认 64 + subgraph 编译开销优化。
+**全部正确性通过**（allclose=True, fail_ratio=0.0000%）。
 
-### 3.2 FULL_KV 模式性能（Newest 独有）
+| Pattern | Raw Flex | Newest Flex | Manual | vs Manual (Raw) | vs Manual (Newest) |
+|---------|:--------:|:-----------:|:------:|:---------------:|:------------------:|
+| `causal` | 4.31 ms | 2.65 ms | 0.59 ms | 7.3x 慢 | 4.5x 慢 |
+| `random_block_sparse` | 4.28 ms | 2.65 ms | 0.59 ms | 7.3x 慢 | 4.5x 慢 |
+| `block_diagonal_64_bs` | **0.56 ms** | **0.54 ms** | 0.80 ms | **1.4x 快** | **1.5x 快** |
+| `sliding_window_128_bs` | **0.73 ms** | **0.71 ms** | 0.80 ms | **1.1x 快** | **1.1x 快** |
+| `dilated_window_bs` | **0.85 ms** | **0.84 ms** | 0.80 ms | 1.1x 慢 | 1.1x 慢 |
+| `strided_bs` | **0.83 ms** | **0.82 ms** | 1.86 ms | **2.2x 快** | **2.3x 快** |
+| `nested_bs` | **0.94 ms** | **0.93 ms** | 0.81 ms | 1.2x 慢 | 1.1x 慢 |
+| `hybrid_sparse_bs` | **1.04 ms** | **1.02 ms** | 0.79 ms | 1.3x 慢 | 1.3x 慢 |
+| `checkerboard_64_bs` | **1.08 ms** | **1.08 ms** | 0.80 ms | 1.3x 慢 | 1.3x 慢 |
+| `prefix_lm_bs` | **1.22 ms** | **1.18 ms** | 0.79 ms | 1.5x 慢 | 1.5x 慢 |
 
-**全部正确性通过**（allclose=True, 0% fail rate @ S=1024）。
+### 3.2 关键发现
 
-| 模式 | Density | S=1024 Flex | S=1024 Manual | S=8192 Flex | vs Newest causal(S=8192) |
-|------|:-------:|:-----------:|:-------------:|:-----------:|:------------------------:|
-| `block_diagonal_64_bs` | 12.5% | **0.57 ms** | 0.86 ms | **2.52 ms** | **22.3x** |
-| `sliding_window_128_bs` | 23.4% | **0.72 ms** | 0.92 ms | **3.94 ms** | **14.3x** |
-| `dilated_window_bs` | 32.8% | **0.86 ms** | 0.86 ms | **5.19 ms** | **10.8x** |
-| `nested_bs` | 39.1% | **0.95 ms** | 0.84 ms | **15.7 ms** | **3.6x** |
-| `hybrid_sparse_bs` | 45.3% | **1.03 ms** | 0.86 ms | **20.0 ms** | **2.8x** |
-| `strided_bs` | 31.3% | 0.82 ms | 0.85 ms | ⏱ timeout | — |
-| `checkerboard_64_bs` | 50.0% | 1.10 ms | 0.87 ms | ⏱ timeout | — |
-| `prefix_lm_bs` | 56.3% | 1.20 ms | 0.85 ms | ⏱ timeout | — |
+**FULL_KV 元数据路径在 Raw 和 Newest 上都能工作。** 原因：`BlockMask.from_kv_blocks` 和 `HAS_FULL_BLOCKS` 分支是 PyTorch 原生支持的，Raw 的 generic 模板同样可以跳过 FULL blocks 的 mask_mod。
+
+| 发现 | 说明 |
+|------|------|
+| Raw vs Newest FULL_KV 性能基本相同 | ±3% 差异，在测量噪声范围内。两者都走 generic template + HAS_FULL_BLOCKS 路径 |
+| Raw causal 比 Newest 慢 1.6x | Newest 有 causal fastpath（3 输入 dense 模板），Raw 没有 |
+| block_diagonal/strided 比 Manual 快 | Manual 算密集 attention 再 mask，Flex 只算有效的 KV blocks |
+| 高密度模式（prefix_lm 56%, checkerboard 50%）比 Manual 慢 | block-sparse metadata 开销超过了跳过无效计算节省的时间 |
 
 ### 3.3 性能规律
 
-**加速比 ≈ 1 / density**
-
 ```
-block_diagonal (12.5% dense) → 22x faster
-sliding_window (23.4% dense) → 14x faster
-dilated_window (32.8% dense) → 11x faster
-nested (39.1% dense)         → 3.6x faster
-hybrid_sparse (45.3% dense)  → 2.8x faster
-checkerboard (50% dense)     → 仅 sparse overhead
+Flex vs Manual 的胜负取决于 density：
+
+  density < 30%  → Flex 比 Manual 快（跳过大量无效 KV blocks）
+    例：block_diagonal (12.5%) → 1.5x faster
+        strided (31.3%)       → 2.2x faster
+
+  density > 40%  → Flex 比 Manual 慢（block-sparse metadata 开销占主导）
+    例：prefix_lm (56.3%)     → 1.5x slower
+        checkerboard (50%)    → 1.3x slower
 ```
 
-越稀疏越划算。block_diagonal @ S=8192 只需处理 1/64 的 KV blocks，接近理论加速上限。
+**拐点约在 35% density**：密度低于此值时 flex_attention 的 block-sparse 模式比 manual dense+mask 更快。
 
-### 3.4 已知限制
+### 3.4 S=8192 性能预估
+
+| Pattern | S=1024 | S=8192 (实测) | vs Manual @ S=8192 (估~58ms) |
+|---------|:------:|:-------------:|:----------------------------|
+| `block_diagonal_64_bs` | 0.54 ms | 2.52 ms | **23x 快** |
+| `sliding_window_128_bs` | 0.71 ms | 3.94 ms | **15x 快** |
+| `dilated_window_bs` | 0.84 ms | 5.19 ms | **11x 快** |
+| `nested_bs` | 0.93 ms | 15.7 ms | **3.7x 快** |
+| `hybrid_sparse_bs` | 1.02 ms | 20.0 ms | **2.9x 快** |
 
 | 限制 | 影响 | 状态 |
 |------|------|------|

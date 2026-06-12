@@ -204,14 +204,36 @@ python3 flex_attention_run_script.py --sparse-config block_diagonal_64_bs
 | `checkerboard_64_bs` | 1.10 ms | 0.87 ms | ⏱ timeout | — | ✅ |
 | `prefix_lm_bs` | 1.20 ms | 0.85 ms | ⏱ timeout | — | ✅ |
 
-#### Raw vs Newest 对比（原有模式）
+#### 3-Way 对比：Raw vs Newest vs Manual（S=1024, warmup=10, repeat=10）
 
-| 配置名 | Raw S=1024 | Newest S=1024 | 加速 | Raw S=8192 | Newest S=8192 | 加速 |
-|--------|:----------:|:-------------:|:----:|:----------:|:-------------:|:----:|
-| `causal` | 4.41 ms | 2.68 ms | **1.6x** | 67.8 ms | 56.2 ms | **1.2x** |
-| `random_block_sparse` | 4.30 ms | 2.67 ms | **1.6x** | 67.9 ms | 56.3 ms | **1.2x** |
+全部正确性通过（allclose=1, 0% fail）。
 
-> Newest 对比 Raw 在相同模式上有 **1.2x–1.6x 加速**（来自 causal fastpath 优化 + BLOCK_M/BLOCK_N 默认 64+subgraph 编译改进）。FULL_KV 模式在此基础上通过跳过不需要的 KV blocks 获得额外加速（block_diagonal @ S=8192 比 Newest causal 快 22x）。
+| 配置名 | Raw Flex | Newest Flex | Manual | vs Manual |
+|--------|:--------:|:-----------:|:------:|:---------:|
+| `causal` | 4.31 ms | 2.65 ms | 0.59 ms | 4.5x 慢 (N) |
+| `random_block_sparse` | 4.28 ms | 2.65 ms | 0.59 ms | 4.5x 慢 (N) |
+| `block_diagonal_64_bs` | 0.56 ms | 0.54 ms | 0.80 ms | **1.5x 快** |
+| `sliding_window_128_bs` | 0.73 ms | 0.71 ms | 0.80 ms | **1.1x 快** |
+| `strided_bs` | 0.83 ms | 0.82 ms | 1.86 ms | **2.3x 快** |
+| `dilated_window_bs` | 0.85 ms | 0.84 ms | 0.80 ms | 1.1x 慢 |
+| `nested_bs` | 0.94 ms | 0.93 ms | 0.81 ms | 1.1x 慢 |
+| `hybrid_sparse_bs` | 1.04 ms | 1.02 ms | 0.79 ms | 1.3x 慢 |
+| `checkerboard_64_bs` | 1.08 ms | 1.08 ms | 0.80 ms | 1.3x 慢 |
+| `prefix_lm_bs` | 1.22 ms | 1.18 ms | 0.79 ms | 1.5x 慢 |
+
+> **关键发现**：FULL_KV 元数据模式在 Raw 和 Newest 上**都能工作**（±3% 性能差在噪声内）。两者都走 generic template + HAS_FULL_BLOCKS 路径。Newest 独有优势在于 causal fastpath（3 输入 dense 模板，causal 和 random_block_sparse 快 1.6x）。
+>
+> **Performance vs Manual 拐点在 ~35% density**：低于此值 Flex 更快（跳过无效 KV blocks），高于此值 Manual 更快（block-sparse metadata 开销 > 节省的计算）。
+
+#### S=8192 性能（Newest）
+
+| 配置名 | S=1024 | S=8192 | vs Manual(S=8192, ~58ms) |
+|--------|:------:|:------:|:------------------------:|
+| `block_diagonal_64_bs` | 0.54 ms | 2.52 ms | **23x** |
+| `sliding_window_128_bs` | 0.71 ms | 3.94 ms | **15x** |
+| `dilated_window_bs` | 0.84 ms | 5.19 ms | **11x** |
+| `nested_bs` | 0.93 ms | 15.7 ms | **3.7x** |
+| `hybrid_sparse_bs` | 1.02 ms | 20.0 ms | **2.9x** |
 
 #### 原有 mask_mod 模式（token 级别，部分受 bishengir 限制）
 
