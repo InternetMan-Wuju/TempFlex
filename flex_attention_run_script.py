@@ -3,6 +3,12 @@
 # python3 flex_attention2.py
 # #强制重新编译
 # 
+import os as _os
+_npu_lib = "/usr/local/python3.11.14/lib/python3.11/site-packages/torch_npu/lib"
+_ld = _os.environ.get("LD_LIBRARY_PATH", "")
+if _npu_lib not in _ld:
+    _os.environ["LD_LIBRARY_PATH"] = f"{_npu_lib}:{_ld}" if _ld else _npu_lib
+
 import torch
 import argparse
 import functools
