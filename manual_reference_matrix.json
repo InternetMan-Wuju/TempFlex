@@ -1,0 +1,470 @@
+[
+  {
+    "seq_len": 1024,
+    "sparse_config": "causal",
+    "returncode": 0,
+    "elapsed_s": 17.11385526880622,
+    "manual_ms": 0.356,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.356 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "block_diagonal_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.393277568742633,
+    "manual_ms": 0.38,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.380 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "checkerboard_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.470599621534348,
+    "manual_ms": 1.18,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m1.180 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "sliding_window_128_bs",
+    "returncode": 0,
+    "elapsed_s": 17.23876607976854,
+    "manual_ms": 0.387,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.387 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "strided_bs",
+    "returncode": 0,
+    "elapsed_s": 17.27045406959951,
+    "manual_ms": 0.396,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.396 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "dilated_window_bs",
+    "returncode": 0,
+    "elapsed_s": 17.378722390159965,
+    "manual_ms": 0.373,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.373 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "nested_bs",
+    "returncode": 0,
+    "elapsed_s": 17.25673869997263,
+    "manual_ms": 0.436,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.436 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "hybrid_sparse_bs",
+    "returncode": 0,
+    "elapsed_s": 17.525067849084735,
+    "manual_ms": 0.393,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.393 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "global_local_bs",
+    "returncode": 0,
+    "elapsed_s": 17.702481659129262,
+    "manual_ms": 0.406,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.406 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "multiscale_dilated_bs",
+    "returncode": 0,
+    "elapsed_s": 17.368980050086975,
+    "manual_ms": 0.403,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.403 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "prefix_lm_bs",
+    "returncode": 0,
+    "elapsed_s": 17.368018379434943,
+    "manual_ms": 0.407,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.407 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "band_global_bs",
+    "returncode": 0,
+    "elapsed_s": 17.307690041139722,
+    "manual_ms": 0.407,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.407 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "causal",
+    "returncode": 0,
+    "elapsed_s": 17.443107338622212,
+    "manual_ms": 0.676,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.676 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "block_diagonal_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.560600059106946,
+    "manual_ms": 0.982,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.982 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "checkerboard_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.34051970951259,
+    "manual_ms": 0.971,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.971 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "sliding_window_128_bs",
+    "returncode": 0,
+    "elapsed_s": 17.176459839567542,
+    "manual_ms": 0.97,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.970 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "strided_bs",
+    "returncode": 0,
+    "elapsed_s": 17.340431060642004,
+    "manual_ms": 0.967,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.967 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "dilated_window_bs",
+    "returncode": 0,
+    "elapsed_s": 17.069219520315528,
+    "manual_ms": 0.967,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.967 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "nested_bs",
+    "returncode": 0,
+    "elapsed_s": 17.311548110097647,
+    "manual_ms": 0.959,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.959 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "hybrid_sparse_bs",
+    "returncode": 0,
+    "elapsed_s": 17.563777949661016,
+    "manual_ms": 0.946,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.946 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "global_local_bs",
+    "returncode": 0,
+    "elapsed_s": 17.247927129268646,
+    "manual_ms": 0.953,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.953 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "multiscale_dilated_bs",
+    "returncode": 0,
+    "elapsed_s": 17.4529827889055,
+    "manual_ms": 0.96,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.960 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "prefix_lm_bs",
+    "returncode": 0,
+    "elapsed_s": 17.301221249625087,
+    "manual_ms": 0.983,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.983 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "band_global_bs",
+    "returncode": 0,
+    "elapsed_s": 17.246700949966908,
+    "manual_ms": 0.953,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:4096 D:128 | Manual Attention avg: \u001b[31m0.953 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "causal",
+    "returncode": 0,
+    "elapsed_s": 17.543685669079423,
+    "manual_ms": 12.911,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m12.911 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "block_diagonal_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.570617830380797,
+    "manual_ms": 21.443,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.443 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "checkerboard_64_bs",
+    "returncode": 0,
+    "elapsed_s": 17.938506860285997,
+    "manual_ms": 21.072,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.072 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "sliding_window_128_bs",
+    "returncode": 0,
+    "elapsed_s": 17.71549596078694,
+    "manual_ms": 23.007,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m23.007 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "strided_bs",
+    "returncode": 0,
+    "elapsed_s": 17.634956380352378,
+    "manual_ms": 21.112,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.112 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "dilated_window_bs",
+    "returncode": 0,
+    "elapsed_s": 17.43336435034871,
+    "manual_ms": 21.633,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.633 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "nested_bs",
+    "returncode": 0,
+    "elapsed_s": 17.424269501119852,
+    "manual_ms": 22.004,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m22.004 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "hybrid_sparse_bs",
+    "returncode": 0,
+    "elapsed_s": 17.540448550134897,
+    "manual_ms": 23.35,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m23.350 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "global_local_bs",
+    "returncode": 0,
+    "elapsed_s": 17.569163849577308,
+    "manual_ms": 20.315,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m20.315 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "multiscale_dilated_bs",
+    "returncode": 0,
+    "elapsed_s": 17.48435308970511,
+    "manual_ms": 20.523,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m20.523 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "prefix_lm_bs",
+    "returncode": 0,
+    "elapsed_s": 17.526635041460395,
+    "manual_ms": 21.62,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.620 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "band_global_bs",
+    "returncode": 0,
+    "elapsed_s": 17.991564720869064,
+    "manual_ms": 21.407,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:16384 D:128 | Manual Attention avg: \u001b[31m21.407 ms\u001b[0m (warmup=1, repeat=3)"
+    ],
+    "stderr_tail": []
+  }
+]

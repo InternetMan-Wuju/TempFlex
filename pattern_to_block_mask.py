@@ -91,6 +91,13 @@ def build_block_diagonal(MQ: int, NK: int, device) -> torch.Tensor:
     return mask[None, None, :, :]  # [1, 1, MQ, NK]
 
 
+def build_causal(MQ: int, NK: int, device) -> torch.Tensor:
+    """Dense causal block mask: Q block i attends to all KV blocks j <= i."""
+    q, k = _arange_2d(MQ, NK, device)
+    mask = q >= k
+    return mask[None, None, :, :]
+
+
 def build_checkerboard(
     MQ: int, NK: int, period_blocks: int, device
 ) -> torch.Tensor:
@@ -339,6 +346,7 @@ def build_band_global(
 # ============================================================
 
 _PATTERN_BUILDERS: dict[str, Callable[..., torch.Tensor]] = {
+    "causal": build_causal,
     "block_diagonal": build_block_diagonal,
     "checkerboard": build_checkerboard,
     "strided": build_strided,

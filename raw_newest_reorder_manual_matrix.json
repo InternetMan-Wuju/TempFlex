@@ -1,0 +1,3238 @@
+[
+  {
+    "seq_len": 1024,
+    "sparse_config": "causal",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 17.13880167901516,
+    "flex_ms": 0.62,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.620 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:15:01.415000 1863094 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_15_00_643363-pid_1863094/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.45356356911361,
+    "flex_ms": 0.383,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=12.50% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.383 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:15:45.768000 1863608 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_15_18_813505-pid_1863608/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.57713905163109,
+    "flex_ms": 0.384,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.384 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:16:30.718000 1864239 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_16_03_424697-pid_1864239/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.496597830206156,
+    "flex_ms": 0.378,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=23.44% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.378 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:17:16.135000 1864871 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_16_48_820512-pid_1864871/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "strided_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 18.474432969465852,
+    "flex_ms": 0.385,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=31.25% shape=[1, 1, 8, 8]",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.385 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:17:35.373000 1865511 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_17_34_582495-pid_1865511/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "dilated_window_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 41.69712645933032,
+    "flex_ms": 0.423,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=32.81% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.423 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:18:18.804000 1866023 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_17_54_044350-pid_1866023/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "nested_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 42.03225643001497,
+    "flex_ms": 0.399,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=39.06% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.399 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:19:01.719000 1866661 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_18_36_523161-pid_1866661/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 42.143859039992094,
+    "flex_ms": 0.375,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=45.31% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.375 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:19:44.397000 1867298 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_19_19_286682-pid_1867298/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "global_local_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.362598180770874,
+    "flex_ms": 0.583,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=51.56% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/2Q737XQa5xWASC-hfWk7I9BWa0UWSl0ZcHArhA55qj0",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.583 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:20:29.380000 1867992 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_20_02_538968-pid_1867992/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.530991880223155,
+    "flex_ms": 0.388,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=46.88% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.388 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:21:15.737000 1868609 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_20_48_194782-pid_1868609/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.63132240064442,
+    "flex_ms": 0.397,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=56.25% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.397 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:22:00.945000 1869251 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_21_33_920067-pid_1869251/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "band_global_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.659673081710935,
+    "flex_ms": 0.38,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=60.94% shape=[1, 1, 8, 8]",
+      "Dumping intermediate results to /root/.triton/dump/kswvlssKmW-iq2GUTT9lX6ZmPo3eEssRrqaP62rdobg",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.380 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:22:45.247000 1869885 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_22_18_536412-pid_1869885/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "causal",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.39990325085819,
+    "flex_ms": 1.967,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "Dumping intermediate results to /root/.triton/dump/i4Sb2wbTIVYXp4tum3sLfFhYgfJFj1l7TCseOaSHnlY",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.967 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:23:30.473000 1870522 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_23_03_650775-pid_1870522/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.23068203032017,
+    "flex_ms": 0.369,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=3.12% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.369 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:24:15.034000 1871152 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_23_48_118595-pid_1871152/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.42662730999291,
+    "flex_ms": 1.066,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.066 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:24:59.243000 1871775 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_24_32_422000-pid_1871775/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.35858775861561,
+    "flex_ms": 0.417,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=6.15% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.417 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:25:44.468000 1872474 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_25_17_805197-pid_1872474/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "strided_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.37697793915868,
+    "flex_ms": 0.725,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=26.56% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.725 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:26:29.408000 1873110 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_26_02_227176-pid_1873110/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "dilated_window_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 42.33564748056233,
+    "flex_ms": 0.468,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=9.08% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.468 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:27:12.765000 1873747 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_26_47_647751-pid_1873747/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "nested_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.41797128878534,
+    "flex_ms": 0.622,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=20.02% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.622 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:27:57.767000 1874377 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_27_30_697392-pid_1874377/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.00640745088458,
+    "flex_ms": 0.729,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=25.10% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.729 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:28:41.343000 1875006 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_28_15_290821-pid_1875006/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "global_local_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.93420564942062,
+    "flex_ms": 1.332,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=17.29% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/oYSYzNHRM57XSkmT7_zSY9uE8Q3xYDAScjxxSj_aUZ4",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.332 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:29:26.740000 1875631 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_28_59_930967-pid_1875631/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.87925675883889,
+    "flex_ms": 0.549,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=14.65% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.549 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:30:11.557000 1876264 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_29_44_910239-pid_1876264/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.16385523043573,
+    "flex_ms": 1.148,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=51.56% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.148 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:30:55.484000 1876886 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_30_29_327735-pid_1876886/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "band_global_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.405937511473894,
+    "flex_ms": 0.589,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=17.87% shape=[1, 1, 32, 32]",
+      "Dumping intermediate results to /root/.triton/dump/lfsLiW0ISlbafGpn1Pu35oWsCRrR2551lioTCFn5U8g",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.589 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:31:40.352000 1877510 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_31_13_420579-pid_1877510/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "causal",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 45.769916201010346,
+    "flex_ms": 14.502,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "Dumping intermediate results to /root/.triton/dump/d45IAgqiewFvZl4X8rMaVdqR21yVeCvTQ8RTW6zcsYY",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m14.502 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:32:27.173000 1878214 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_31_59_769759-pid_1878214/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.8483992703259,
+    "flex_ms": 0.598,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=0.78% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.598 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:33:13.194000 1878834 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_32_46_408447-pid_1878834/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 19.0,
+    "flex_ms": 11.579,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[rerun] checkerboard_64_bs@16384 full row retest",
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 128, 128]",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: 11.579 ms (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:34:03.729000 1879474 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_33_33_123498-pid_1879474/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.4457528796047,
+    "flex_ms": 0.771,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=1.56% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.771 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:34:50.558000 1880121 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_34_23_883058-pid_1880121/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "strided_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.94473763927817,
+    "flex_ms": 6.189,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=25.39% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m6.189 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:35:36.453000 1880748 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_35_09_494748-pid_1880748/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "dilated_window_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.55069267004728,
+    "flex_ms": 0.946,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=2.33% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.946 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:36:22.046000 1881377 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_35_55_193009-pid_1881377/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "nested_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.835984751582146,
+    "flex_ms": 3.707,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=14.43% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m3.707 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:37:08.063000 1882018 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_36_41_006268-pid_1882018/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.612526001408696,
+    "flex_ms": 4.806,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=19.22% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m4.806 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:37:53.593000 1882665 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_37_26_711303-pid_1882665/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "global_local_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.412275379523635,
+    "flex_ms": 4.667,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=4.60% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/MMLu2IF_H9gBqqpZNL6GSh-XPcY5CnBU6tILzej8ipc",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m4.667 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:38:38.568000 1883291 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_38_11_965800-pid_1883291/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 43.55560401082039,
+    "flex_ms": 1.282,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=3.85% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m1.282 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:39:24.084000 1883922 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_38_57_317354-pid_1883922/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 45.62884329073131,
+    "flex_ms": 11.847,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=50.39% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m11.847 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:40:09.247000 1884553 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_39_42_415412-pid_1884553/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "band_global_bs",
+    "variant": "raw_flex",
+    "returncode": 0,
+    "elapsed_s": 44.42105033993721,
+    "flex_ms": 1.464,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=4.63% shape=[1, 1, 128, 128]",
+      "Dumping intermediate results to /root/.triton/dump/6weJQ1sAOICntdNo1PdQUZhIz_hM4aJFVB27KM3kfFE",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m1.464 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:40:55.394000 1885172 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_40_28_590027-pid_1885172/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "causal",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 18.342315590009093,
+    "flex_ms": 0.484,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "[torch_npu flex_attention debug] 使用 torch_npu dense causal Flex Triton template",
+      "Dumping precompiled.h to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.484 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:41:14.266000 1885803 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_41_13_562777-pid_1885803/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "causal",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "causal uses no reorder; compare raw/newest flex instead",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "causal",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.2357494905591,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.705,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.705 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.40789671987295,
+    "flex_ms": 0.428,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=12.50% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.428 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:42:18.288000 1886825 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_41_52_008442-pid_1886825/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.01532092876732,
+    "flex_ms": null,
+    "reorder_ms": 0.387,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.387 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.158 ms | kernel time: 0.387 ms | comp/kernel ratio: 557.75%"
+    ],
+    "stderr_tail": [
+      "[W616 11:42:34.185857180 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:43:02.654000 1887445 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_42_36_234180-pid_1887445/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.46732034161687,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.688,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.688 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.4366691801697,
+    "flex_ms": 0.406,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.406 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:44:05.255000 1888580 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_43_38_910311-pid_1888580/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.24720875918865,
+    "flex_ms": null,
+    "reorder_ms": 0.394,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.394 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.207 ms | kernel time: 0.394 ms | comp/kernel ratio: 559.95%"
+    ],
+    "stderr_tail": [
+      "[W616 11:44:21.203583380 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:44:49.214000 1889200 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_44_23_276712-pid_1889200/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.08804582990706,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.718,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.718 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.262544218450785,
+    "flex_ms": 0.403,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=23.44% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.403 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:45:51.880000 1890404 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_45_25_702783-pid_1890404/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.70256198011339,
+    "flex_ms": null,
+    "reorder_ms": 0.374,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.374 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.358 ms | kernel time: 0.374 ms | comp/kernel ratio: 630.93%"
+    ],
+    "stderr_tail": [
+      "[W616 11:46:08.179996710 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:46:36.462000 1891046 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_46_10_270559-pid_1891046/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.391716269776225,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.771,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.771 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "strided_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 17.39402765966952,
+    "flex_ms": 0.393,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=31.25% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.393 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:47:14.187000 1892181 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_47_13_382930-pid_1892181/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "strided_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 17.141880409792066,
+    "flex_ms": null,
+    "reorder_ms": 0.365,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.365 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.117 ms | kernel time: 0.365 ms | comp/kernel ratio: 580.13%"
+    ],
+    "stderr_tail": [
+      "[W616 11:47:30.287388950 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:47:32.111000 1892695 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_47_31_313213-pid_1892695/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "strided_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.04563149996102,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.7,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.700 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.31187072023749,
+    "flex_ms": 0.377,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=32.81% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.377 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:48:34.169000 1893721 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_48_07_789863-pid_1893721/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 40.310378700494766,
+    "flex_ms": null,
+    "reorder_ms": 0.368,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.368 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.106 ms | kernel time: 0.368 ms | comp/kernel ratio: 572.64%"
+    ],
+    "stderr_tail": [
+      "[W616 11:48:50.758854620 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:49:16.216000 1894345 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_48_51_795165-pid_1894345/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.33249218016863,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.691,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.691 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "nested_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.117974370718,
+    "flex_ms": 0.367,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=39.06% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.367 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:50:16.789000 1895487 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_49_51_564046-pid_1895487/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "nested_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.23103179037571,
+    "flex_ms": null,
+    "reorder_ms": 0.381,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.381 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.142 ms | kernel time: 0.381 ms | comp/kernel ratio: 561.93%"
+    ],
+    "stderr_tail": [
+      "[W616 11:50:33.502153950 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:50:59.057000 1896112 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_50_34_516597-pid_1896112/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "nested_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.083720330148935,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.648,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.648 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.583366081118584,
+    "flex_ms": 0.384,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=45.31% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.384 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:52:00.492000 1897336 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_51_35_233180-pid_1897336/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.11356236040592,
+    "flex_ms": null,
+    "reorder_ms": 0.369,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.369 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.177 ms | kernel time: 0.369 ms | comp/kernel ratio: 590.08%"
+    ],
+    "stderr_tail": [
+      "[W616 11:52:17.391404220 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:52:43.147000 1897969 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_52_18_497663-pid_1897969/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.17704322002828,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.685,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.685 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.56510500982404,
+    "flex_ms": 0.521,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=51.56% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/2NL-8EmoFbv70ZyJ4d2Wt9IlsyojToOSq-0OiJ8yAAU",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.521 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:53:45.045000 1899116 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_53_18_922543-pid_1899116/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.63751228898764,
+    "flex_ms": null,
+    "reorder_ms": 0.39,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.390 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.146 ms | kernel time: 0.390 ms | comp/kernel ratio: 549.70%"
+    ],
+    "stderr_tail": [
+      "[W616 11:54:01.702320730 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:54:28.767000 1899739 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_54_02_722573-pid_1899739/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 16.97491323016584,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.707,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.707 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.48811639100313,
+    "flex_ms": 0.402,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=46.88% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.402 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 11:55:30.394000 1900875 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_55_05_386263-pid_1900875/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.0850567612797,
+    "flex_ms": null,
+    "reorder_ms": 0.359,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.359 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.133 ms | kernel time: 0.359 ms | comp/kernel ratio: 593.86%"
+    ],
+    "stderr_tail": [
+      "[W616 11:55:47.400642830 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:56:13.031000 1901490 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_55_48_437566-pid_1901490/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.00519680045545,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.693,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.693 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.38075812160969,
+    "flex_ms": 0.376,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=56.25% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.376 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:57:14.123000 1902622 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_56_48_906724-pid_1902622/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.52510072104633,
+    "flex_ms": null,
+    "reorder_ms": 0.367,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.367 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 1.933 ms | kernel time: 0.367 ms | comp/kernel ratio: 526.74%"
+    ],
+    "stderr_tail": [
+      "[W616 11:57:31.245905870 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:57:59.208000 1903237 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_57_32_316067-pid_1903237/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.353662561625242,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.819,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.819 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.61165798082948,
+    "flex_ms": 0.382,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=60.94% shape=[1, 1, 8, 8]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex Attention avg: \u001b[31m0.382 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 11:59:01.534000 1904374 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_58_35_209267-pid_1904374/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.13975979946554,
+    "flex_ms": null,
+    "reorder_ms": 0.365,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (8 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/SVbVp0IHry7NzlzrQqNdM5ZL_L_k5IDoSe-y9Ei5zqc",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:1024 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.365 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.130 ms | kernel time: 0.365 ms | comp/kernel ratio: 584.35%"
+    ],
+    "stderr_tail": [
+      "[W616 11:59:18.287581640 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 11:59:43.827000 1904995 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_11_59_19_288504-pid_1904995/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 1024,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 17.16254167072475,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": 0.67,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "B:1 H:2 S:1024 D:128 | Manual Attention avg: \u001b[31m0.670 ms\u001b[0m (warmup=1, repeat=1)"
+    ],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "causal",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.21320058964193,
+    "flex_ms": 1.543,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "[torch_npu flex_attention debug] 使用 torch_npu dense causal Flex Triton template",
+      "Dumping intermediate results to /root/.triton/dump/D0XCaYryXajb0XgJuqZmD8NAA9og3hbWVck1HDyGzvk",
+      "Dumping precompiled.h to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.543 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:00:44.893000 1906130 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_00_19_864280-pid_1906130/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "causal",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "causal uses no reorder; compare raw/newest flex instead",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "causal",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 41.23663488961756,
+    "flex_ms": 0.379,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=3.12% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.379 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:01:30.006000 1906875 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_01_04_914284-pid_1906875/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.21017707884312,
+    "flex_ms": null,
+    "reorder_ms": 0.365,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.365 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.344 ms | kernel time: 0.365 ms | comp/kernel ratio: 641.59%"
+    ],
+    "stderr_tail": [
+      "[W616 12:01:45.031549550 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:02:11.710000 1907499 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_01_47_081243-pid_1907499/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.250646309927106,
+    "flex_ms": 1.068,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.068 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:02:56.096000 1908144 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_02_30_402310-pid_1908144/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.721827909350395,
+    "flex_ms": null,
+    "reorder_ms": 1.074,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m1.074 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.424 ms | kernel time: 1.074 ms | comp/kernel ratio: 225.73%"
+    ],
+    "stderr_tail": [
+      "[W616 12:03:12.054319260 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:03:39.047000 1908772 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_03_14_281784-pid_1908772/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.45002759993076,
+    "flex_ms": 0.443,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=6.15% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.443 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:04:24.706000 1909396 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_03_57_704319-pid_1909396/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.87847408093512,
+    "flex_ms": null,
+    "reorder_ms": 0.405,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.405 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.091 ms | kernel time: 0.405 ms | comp/kernel ratio: 515.78%"
+    ],
+    "stderr_tail": [
+      "[W616 12:04:41.227904650 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:05:09.844000 1910036 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_04_43_290225-pid_1910036/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "strided_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.615844490006566,
+    "flex_ms": 0.741,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=26.56% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.741 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:05:55.366000 1910669 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_05_28_918505-pid_1910669/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "strided_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.4696388207376,
+    "flex_ms": null,
+    "reorder_ms": 0.694,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.694 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.053 ms | kernel time: 0.694 ms | comp/kernel ratio: 296.00%"
+    ],
+    "stderr_tail": [
+      "[W616 12:06:12.554321740 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:06:40.235000 1911308 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_06_13_604591-pid_1911308/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "strided_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.15123010985553,
+    "flex_ms": 0.46,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=9.08% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.460 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:07:25.552000 1912003 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_06_58_745250-pid_1912003/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.226810770109296,
+    "flex_ms": null,
+    "reorder_ms": 0.441,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.441 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.039 ms | kernel time: 0.441 ms | comp/kernel ratio: 462.35%"
+    ],
+    "stderr_tail": [
+      "[W616 12:07:42.920449590 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:08:10.364000 1912630 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_07_43_970082-pid_1912630/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "nested_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.19672571122646,
+    "flex_ms": 0.662,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=20.02% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.662 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:08:56.299000 1913256 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_08_29_897811-pid_1913256/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "nested_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.783141918480396,
+    "flex_ms": null,
+    "reorder_ms": 0.601,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.601 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.239 ms | kernel time: 0.601 ms | comp/kernel ratio: 372.72%"
+    ],
+    "stderr_tail": [
+      "[W616 12:09:13.739874110 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:09:41.324000 1913884 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_09_14_823470-pid_1913884/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "nested_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.41477859020233,
+    "flex_ms": 0.719,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=25.10% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.719 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:10:26.695000 1914511 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_10_00_289931-pid_1914511/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.424538500607014,
+    "flex_ms": null,
+    "reorder_ms": 0.714,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.714 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.428 ms | kernel time: 0.714 ms | comp/kernel ratio: 340.13%"
+    ],
+    "stderr_tail": [
+      "[W616 12:10:43.672109330 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:11:11.113000 1915139 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_10_44_730499-pid_1915139/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.72578785941005,
+    "flex_ms": 1.363,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=17.29% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/mm7-4qDq0a6ojn9xRNDwOk15bhSkMXLpIc4z5MRivKE",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.363 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:11:56.626000 1915767 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_11_30_605799-pid_1915767/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.29490124993026,
+    "flex_ms": null,
+    "reorder_ms": 0.562,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.562 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.464 ms | kernel time: 0.562 ms | comp/kernel ratio: 438.07%"
+    ],
+    "stderr_tail": [
+      "[W616 12:12:13.716899340 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:12:40.917000 1916389 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_12_14_755130-pid_1916389/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.38616483844817,
+    "flex_ms": 0.545,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=14.65% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.545 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:13:27.243000 1917005 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_12_59_983862-pid_1917005/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.1410641502589,
+    "flex_ms": null,
+    "reorder_ms": 0.524,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.524 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.331 ms | kernel time: 0.524 ms | comp/kernel ratio: 444.67%"
+    ],
+    "stderr_tail": [
+      "[W616 12:13:43.374108340 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:14:10.398000 1917622 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_13_44_443925-pid_1917622/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.26764420978725,
+    "flex_ms": 1.132,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=51.56% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m1.132 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:14:56.486000 1918246 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_14_29_807751-pid_1918246/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.80148082971573,
+    "flex_ms": null,
+    "reorder_ms": 1.063,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m1.063 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.528 ms | kernel time: 1.063 ms | comp/kernel ratio: 237.91%"
+    ],
+    "stderr_tail": [
+      "[W616 12:15:13.199421440 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:15:40.572000 1918866 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_15_15_243705-pid_1918866/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.113610280677676,
+    "flex_ms": 0.596,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=17.87% shape=[1, 1, 32, 32]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex Attention avg: \u001b[31m0.596 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:16:24.403000 1919481 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_15_59_778028-pid_1919481/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.33608783967793,
+    "flex_ms": null,
+    "reorder_ms": 0.589,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (32 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/vbx6wvny3TR09MBx_bvzlh0l-uUskM2FoVyVWxr3AHo",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:4096 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.589 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.326 ms | kernel time: 0.589 ms | comp/kernel ratio: 395.10%"
+    ],
+    "stderr_tail": [
+      "[W616 12:16:41.793038170 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:17:07.762000 1920106 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_16_42_832401-pid_1920106/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 4096,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "causal",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.49139315076172,
+    "flex_ms": 12.906,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] causal: Causal LM (baseline)",
+      "resolved --device auto -> npu",
+      "[torch_npu flex_attention debug] 使用 torch_npu dense causal Flex Triton template",
+      "Dumping intermediate results to /root/.triton/dump/Wyu_e-VCNZuds2h2OBb3kFOhNRpVdukj1OSS-wwVDac",
+      "Dumping precompiled.h to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/4Ooeqxr9_3I1VFqnfhxjEnGTgVIY87zNag3IzCxmC8o",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m12.906 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:17:52.313000 1920722 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_17_27_617763-pid_1920722/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "causal",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "causal uses no reorder; compare raw/newest flex instead",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "causal",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.20371223986149,
+    "flex_ms": 0.598,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] block_diagonal: density=0.78% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.598 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:18:38.193000 1921337 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_18_12_994755-pid_1921337/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.231503220275044,
+    "flex_ms": null,
+    "reorder_ms": 0.567,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] block_diagonal_64_bs: Block Diagonal (block=64, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.567 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.623 ms | kernel time: 0.567 ms | comp/kernel ratio: 462.87%"
+    ],
+    "stderr_tail": [
+      "[W616 12:18:54.662174240 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:19:20.081000 1921956 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_18_55_742186-pid_1921956/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "block_diagonal_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.4091057498008,
+    "flex_ms": 11.732,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] checkerboard: density=50.00% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m11.732 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:20:04.930000 1922660 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_19_40_306988-pid_1922660/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.311620250344276,
+    "flex_ms": null,
+    "reorder_ms": 11.808,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] checkerboard_64_bs: Checkerboard (period=2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m11.808 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.644 ms | kernel time: 11.808 ms"
+    ],
+    "stderr_tail": [
+      "[W616 12:20:22.309597920 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:20:47.536000 1923295 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_20_23_345082-pid_1923295/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "checkerboard_64_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.29249679110944,
+    "flex_ms": 0.759,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] sliding_window: density=1.56% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.759 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:21:31.838000 1923919 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_21_07_264510-pid_1923919/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.20064057968557,
+    "flex_ms": null,
+    "reorder_ms": 0.734,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] sliding_window_128_bs: Sliding Window (2 blocks, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.734 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.606 ms | kernel time: 0.734 ms | comp/kernel ratio: 355.19%"
+    ],
+    "stderr_tail": [
+      "[W616 12:21:48.984799180 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:22:15.193000 1924554 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_21_50_032799-pid_1924554/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "sliding_window_128_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "strided_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.601086620241404,
+    "flex_ms": 6.243,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] strided: density=25.39% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m6.243 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:22:59.487000 1925188 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_22_35_148596-pid_1925188/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "strided_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.227458940818906,
+    "flex_ms": null,
+    "reorder_ms": 6.036,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] strided_bs: Strided (stride=2 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m6.036 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.813 ms | kernel time: 6.036 ms | comp/kernel ratio: 46.60%"
+    ],
+    "stderr_tail": [
+      "[W616 12:23:16.745961950 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:23:42.438000 1925823 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_23_17_906778-pid_1925823/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "strided_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.6739433594048,
+    "flex_ms": 0.943,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[block mask] dilated_window: density=2.33% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m0.943 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:24:29.493000 1926452 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_24_03_226582-pid_1926452/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.40083672851324,
+    "flex_ms": null,
+    "reorder_ms": 0.908,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] dilated_window_bs: Dilated Window (radius=2, dil=1 blocks, causal, FULL_KV)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m0.908 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.693 ms | kernel time: 0.908 ms | comp/kernel ratio: 296.54%"
+    ],
+    "stderr_tail": [
+      "[W616 12:24:46.987379980 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:25:13.118000 1927083 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_24_48_152325-pid_1927083/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "dilated_window_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "nested_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 42.29016770981252,
+    "flex_ms": 3.708,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] nested: density=14.43% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m3.708 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:25:58.399000 1927793 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_25_32_661730-pid_1927793/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "nested_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 41.50136427022517,
+    "flex_ms": null,
+    "reorder_ms": 3.599,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] nested_bs: Nested: Local(2) + Stride(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m3.599 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.510 ms | kernel time: 3.599 ms | comp/kernel ratio: 69.74%"
+    ],
+    "stderr_tail": [
+      "[W616 12:26:14.447479590 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:26:40.249000 1928409 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_26_15_482167-pid_1928409/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "nested_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.287755409255624,
+    "flex_ms": 4.815,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] hybrid_sparse: density=19.22% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m4.815 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:27:25.952000 1929135 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_26_59_800608-pid_1929135/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 42.39874870143831,
+    "flex_ms": null,
+    "reorder_ms": 4.644,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] hybrid_sparse_bs: Hybrid: Local(2)+Stride(4)+Global(8) blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m4.644 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.557 ms | kernel time: 4.644 ms | comp/kernel ratio: 55.05%"
+    ],
+    "stderr_tail": [
+      "[W616 12:27:42.150387250 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:28:10.346000 1929789 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_27_44_186726-pid_1929789/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "hybrid_sparse_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 44.491348369047046,
+    "flex_ms": 4.676,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] global_local: density=4.60% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/eiP8xMWbjWe24U9PTAptJKKLVkbHIHsQmkqCU-qcXH4",
+      "Dumping precompiled.h to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/FItpqbHcfNOfERFts-HANzXQclX6Zsiv5BB_CRwJxHM",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m4.676 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:28:55.609000 1930411 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_28_29_597712-pid_1930411/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.132850740104914,
+    "flex_ms": null,
+    "reorder_ms": 1.413,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] global_local_bs: Global(1) + Local(4) blocks, causal, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m1.413 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.554 ms | kernel time: 1.413 ms | comp/kernel ratio: 180.74%"
+    ],
+    "stderr_tail": [
+      "[W616 12:29:12.014117000 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:29:40.332000 1931055 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_29_14_108723-pid_1931055/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "global_local_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.53534049168229,
+    "flex_ms": 1.261,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[block mask] multiscale_dilated: density=3.85% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m1.261 ms\u001b[0m (warmup=3, repeat=5)"
+    ],
+    "stderr_tail": [
+      "W0616 12:30:26.042000 1931680 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_30_00_080726-pid_1931680/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.20472614094615,
+    "flex_ms": null,
+    "reorder_ms": 1.257,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] multiscale_dilated_bs: Multi-Scale Dilated [(2,1),(4,1)] blocks, FULL_KV",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m1.257 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.619 ms | kernel time: 1.257 ms | comp/kernel ratio: 208.41%"
+    ],
+    "stderr_tail": [
+      "[W616 12:30:42.763617250 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:31:10.274000 1932348 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_30_43_813176-pid_1932348/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "multiscale_dilated_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.5135336201638,
+    "flex_ms": 12.032,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[block mask] prefix_lm: density=50.39% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m12.032 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:31:56.220000 1932989 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_31_29_975925-pid_1932989/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.84552494995296,
+    "flex_ms": null,
+    "reorder_ms": 11.626,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] prefix_lm_bs: Prefix LM (prefix=1 block, FULL_KV metadata)",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m11.626 ms\u001b[0m (warmup=3, repeat=5)",
+      "  ── reorder computation time (CPU): 2.589 ms | kernel time: 11.626 ms | comp/kernel ratio: 22.27%"
+    ],
+    "stderr_tail": [
+      "[W616 12:32:12.880772010 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:32:40.073000 1933611 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_32_13_916954-pid_1933611/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "prefix_lm_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_flex",
+    "returncode": 0,
+    "elapsed_s": 43.51798976957798,
+    "flex_ms": 1.437,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[block mask] band_global: density=4.63% shape=[1, 1, 128, 128]",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex Attention avg: \u001b[31m1.437 ms\u001b[0m (warmup=3, repeat=5, trimmed: 2/5 outliers dropped)"
+    ],
+    "stderr_tail": [
+      "W0616 12:33:26.460000 1934252 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_33_00_205988-pid_1934252/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_reorder",
+    "returncode": 0,
+    "elapsed_s": 43.14701993949711,
+    "flex_ms": null,
+    "reorder_ms": 1.424,
+    "manual_ms": null,
+    "skipped": false,
+    "skip_reason": null,
+    "stdout_tail": [
+      "[sparse-config] band_global_bs: Band(2) + Global(1) blocks, FULL_KV metadata",
+      "resolved --device auto -> npu",
+      "[reorder] Non-identity permutation computed (128 blocks)",
+      "[torch_npu flex_attention debug] 使用 pure block-sparse template (no subgraphs)",
+      "Dumping intermediate results to /root/.triton/dump/576qGloBazyWd1SKSL0brFI722YZd2DkgLfFNQdv5zQ",
+      "Dumping precompiled.h to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "Dumping launcher_cxx11abi1.cxx to /root/.triton/dump/I5gJo5B_OmnsAmyY6ZhyMKja6NL1kXs7mIgA0iCdI4Y",
+      "B:1 H:2 S:16384 D:128 | Flex+wave_overlap+external avg: \u001b[31m1.424 ms\u001b[0m (warmup=3, repeat=5, trimmed: 1/5 outliers dropped)",
+      "  ── reorder computation time (CPU): 2.637 ms | kernel time: 1.424 ms | comp/kernel ratio: 185.12%"
+    ],
+    "stderr_tail": [
+      "[W616 12:33:42.852100500 compiler_depend.ts:41] Warning: Warning: kernel [ArgSort] can not support dtype int32 or int64 on AiCore, Now this kernel is running on AiCpu.If you are more concerned about high-performance execution,please cast dtype to float32. (function operator())",
+      "W0616 12:34:10.514000 1934879 site-packages/torch/_inductor/debug.py:454] [0/0] model__1_inference_3 debug trace: /wyh/code/TempFlex/torch_compile_debug/run_2026_06_16_12_33_43_891894-pid_1934879/torchinductor/model__1_inference_3.0"
+    ]
+  },
+  {
+    "seq_len": 16384,
+    "sparse_config": "band_global_bs",
+    "variant": "newest_manual",
+    "returncode": 0,
+    "elapsed_s": 0.0,
+    "flex_ms": null,
+    "reorder_ms": null,
+    "manual_ms": null,
+    "skipped": true,
+    "skip_reason": "manual skipped above S=2048",
+    "stdout_tail": [],
+    "stderr_tail": []
+  }
+]

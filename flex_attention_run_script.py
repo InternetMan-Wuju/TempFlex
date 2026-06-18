@@ -35,6 +35,7 @@ try:
     from torch_npu._inductor.kernel.flex_attention_reorder import (
         reorder_flex_forward,
         compute_block_hit_rate,
+        rebuild_block_mask,
         unpermute_output,
         make_reordered_score_mod,
         compute_and_set_pending_perm,
@@ -136,6 +137,272 @@ def identity(score, batch, head, token_q, token_kv):
     return score
 def causal_mask(batch, head, token_q, token_kv):
     return token_q >= token_kv
+
+
+def _full_metadata_to_bool_mask(full_idx, full_num):
+    """Reconstruct a row/column bool mask from FULL_KV metadata on CPU."""
+    src_idx = full_idx.detach().cpu()
+    src_num = full_num.detach().cpu()
+    *prefix, n_rows, n_cols = src_idx.shape
+    mask = torch.zeros((*prefix, n_rows, n_cols), dtype=torch.bool)
+    flat_idx = src_idx.reshape(-1, n_rows, n_cols)
+    flat_num = src_num.reshape(-1, n_rows)
+    flat_mask = mask.reshape(-1, n_rows, n_cols)
+    for outer in range(flat_idx.shape[0]):
+        for row in range(n_rows):
+            count = int(flat_num[outer, row].item())
+            if count <= 0:
+                continue
+            cols = flat_idx[outer, row, :count].to(torch.long)
+            flat_mask[outer, row, cols] = True
+    return mask
+
+
+def _compute_boundary_dp_desc_waves(reordered, wave_size):
+    """Choose per-wave KV direction by minimizing adjacent boundary jumps."""
+    h_count, n_rows, n_cols = reordered.shape
+    wave_size = max(1, int(wave_size))
+    n_waves = (n_rows + wave_size - 1) // wave_size
+    pad = n_waves * wave_size - n_rows
+    if pad > 0:
+        reordered = torch.cat(
+            [reordered, torch.zeros(h_count, pad, n_cols, dtype=torch.bool)],
+            dim=1,
+        )
+
+    wave_union = reordered.view(h_count, n_waves, wave_size, n_cols).any(dim=2)
+    cols = torch.arange(n_cols).view(1, 1, n_cols)
+    lo = torch.where(wave_union, cols, torch.full_like(cols, n_cols)).min(dim=2).values.float()
+    hi = torch.where(wave_union, cols, torch.full_like(cols, -1)).max(dim=2).values.float()
+    empty = hi < 0
+    lo = torch.where(empty, torch.zeros_like(lo), lo)
+    hi = torch.where(empty, torch.zeros_like(hi), hi)
+
+    desc_waves = torch.zeros(h_count, n_waves, dtype=torch.bool)
+    if n_waves <= 1:
+        return desc_waves
+
+    for head in range(h_count):
+        start = torch.stack([lo[head], hi[head]], dim=1)
+        end = torch.stack([hi[head], lo[head]], dim=1)
+        dp = torch.zeros(n_waves, 2, dtype=torch.float32)
+        parent = torch.zeros(n_waves, 2, dtype=torch.long)
+        for wave in range(1, n_waves):
+            cost = dp[wave - 1].view(2, 1) + (
+                end[wave - 1].view(2, 1) - start[wave].view(1, 2)
+            ).abs()
+            dp[wave], parent[wave] = cost.min(dim=0)
+        cur = int(dp[-1].argmin().item())
+        for wave in range(n_waves - 1, -1, -1):
+            desc_waves[head, wave] = bool(cur)
+            cur = int(parent[wave, cur].item()) if wave > 0 else 0
+    return desc_waves
+
+
+def _compute_edge_dp_desc_waves(full_idx, full_num, wave_size, edge_blocks=4):
+    """Choose per-wave KV direction by maximizing adjacent edge-set overlap."""
+    src_idx = full_idx.detach().cpu()
+    src_num = full_num.detach().cpu()
+    *prefix, n_rows, n_cols = src_idx.shape
+    flat_idx = src_idx.reshape(-1, n_rows, n_cols)
+    flat_num = src_num.reshape(-1, n_rows)
+    h_count = flat_idx.shape[0]
+    wave_size = max(1, int(wave_size))
+    edge_blocks = max(1, int(edge_blocks))
+    n_waves = (n_rows + wave_size - 1) // wave_size
+
+    wave_start = torch.zeros(h_count, n_waves, n_cols, dtype=torch.bool)
+    wave_end = torch.zeros(h_count, n_waves, n_cols, dtype=torch.bool)
+    for h in range(h_count):
+        for row in range(n_rows):
+            count = int(flat_num[h, row].item())
+            if count <= 0:
+                continue
+            edge = min(edge_blocks, count)
+            wave = row // wave_size
+            start_cols = flat_idx[h, row, :edge].to(torch.long)
+            end_cols = flat_idx[h, row, count - edge : count].to(torch.long)
+            wave_start[h, wave, start_cols] = True
+            wave_end[h, wave, end_cols] = True
+
+    desc_waves = torch.zeros(h_count, n_waves, dtype=torch.bool)
+    if n_waves <= 1:
+        return desc_waves
+
+    for h in range(h_count):
+        starts = (wave_start[h], wave_end[h])
+        ends = (wave_end[h], wave_start[h])
+        dp = torch.zeros(n_waves, 2, dtype=torch.float32)
+        parent = torch.zeros(n_waves, 2, dtype=torch.long)
+        for wave in range(1, n_waves):
+            cost = torch.empty(2, 2, dtype=torch.float32)
+            for prev_o in range(2):
+                for cur_o in range(2):
+                    overlap = (ends[prev_o][wave - 1] & starts[cur_o][wave]).sum().float()
+                    cost[prev_o, cur_o] = dp[wave - 1, prev_o] - overlap
+            dp[wave], parent[wave] = cost.min(dim=0)
+        cur = int(dp[-1].argmin().item())
+        for wave in range(n_waves - 1, -1, -1):
+            desc_waves[h, wave] = bool(cur)
+            cur = int(parent[wave, cur].item()) if wave > 0 else 0
+    return desc_waves.reshape(*prefix, n_waves)
+
+
+def apply_kv_order_to_full_metadata(full_idx, full_num, kv_order, wave_size):
+    if kv_order == "asc":
+        return full_idx
+    if kv_order not in ("desc", "snake", "snake_inv", "boundary_dp", "edge_dp"):
+        raise ValueError(f"Unsupported --kv-order: {kv_order}")
+
+    device = full_idx.device
+    *prefix, n_rows, n_cols = full_idx.shape
+    col = torch.arange(n_cols, device=device).view(*([1] * (full_idx.ndim - 1)), n_cols)
+    valid = col < full_num.unsqueeze(-1)
+    src = torch.where(valid, (full_num.unsqueeze(-1) - 1 - col).clamp(min=0), col)
+    desc_idx = torch.gather(full_idx, -1, src.to(torch.long))
+    if kv_order == "desc":
+        return desc_idx
+    if kv_order == "boundary_dp":
+        mask = _full_metadata_to_bool_mask(full_idx, full_num)
+        wave_desc = _compute_boundary_dp_desc_waves(
+            mask.reshape(-1, n_rows, n_cols),
+            wave_size,
+        )
+        desc_rows = wave_desc.repeat_interleave(max(1, int(wave_size)), dim=1)[:, :n_rows]
+        desc_rows = desc_rows.reshape(*prefix, n_rows, 1).to(device=device)
+        return torch.where(desc_rows, desc_idx, full_idx)
+    if kv_order == "edge_dp":
+        wave_desc = _compute_edge_dp_desc_waves(full_idx, full_num, wave_size, edge_blocks=4)
+        desc_rows = wave_desc.repeat_interleave(max(1, int(wave_size)), dim=-1)[..., :n_rows]
+        desc_rows = desc_rows.reshape(*prefix, n_rows, 1).to(device=device)
+        return torch.where(desc_rows, desc_idx, full_idx)
+
+    row = torch.arange(n_rows, device=device).view(*([1] * (full_idx.ndim - 2)), n_rows, 1)
+    desc_wave = ((row // max(1, int(wave_size))) % 2) == 1
+    if kv_order == "snake_inv":
+        desc_wave = ~desc_wave
+    return torch.where(desc_wave, desc_idx, full_idx)
+
+
+def apply_npu_reorder_selector(args):
+    """Conservative selector for known NPU reorder win/loss regions."""
+    sparse_config = getattr(args, "sparse_config", None)
+    seq_len = int(getattr(args, "seq_len", 0) or 0)
+    disabled = {
+        "causal": "causal has natural contiguous KV locality; use causal fastpath instead",
+        "sliding_window_128_bs": "80K repeat tests showed reorder regression",
+        "dilated_window_bs": "80K repeat tests showed reorder regression",
+        "hybrid_sparse_bs": "wave_overlap reorder is crash-prone on this pattern",
+    }
+    if sparse_config in disabled:
+        return False, disabled[sparse_config]
+    if sparse_config == "strided_bs" and seq_len >= 65536:
+        args.block_reorder_impl = "external"
+        args.block_reorder_mode = "wave_overlap"
+        args.kv_order = "snake_inv"
+        return True, "selected wave_overlap + snake_inv for strided_bs long sequence"
+    return False, f"no validated NPU reorder win for sparse_config={sparse_config!r}, seq_len={seq_len}"
+
+
+def banded_union_wave_reorder(mask_float, wave_size=132, waves_per_block=4, candidate_window=768, select_chunk=1):
+    """Host-side port of the patent's NNZ-banded wave KV-union packing."""
+    *leading, mb, nb = mask_float.shape
+    h_count = 1 if not leading else math.prod(leading)
+    mask = mask_float.reshape(h_count, mb, nb).bool()
+    device = mask.device
+    wave_size = max(1, int(wave_size))
+    waves_per_block = max(1, int(waves_per_block))
+    macro_size = wave_size * waves_per_block
+    candidate_window = max(int(candidate_window), wave_size)
+    select_chunk = max(1, int(select_chunk))
+
+    nnz = mask.sum(dim=2).float()
+    nnz_order = nnz.argsort(dim=1, descending=True)
+    n_macros = (mb + macro_size - 1) // macro_size
+    total_rows = n_macros * macro_size
+    pad = total_rows - mb
+    n_waves = total_rows // wave_size
+    if pad > 0:
+        pad_idx = torch.arange(mb, mb + pad, device=device).unsqueeze(0).expand(h_count, -1)
+        order_pad = torch.cat([nnz_order, pad_idx], dim=1)
+    else:
+        order_pad = nnz_order
+
+    out_heads = []
+    for h in range(h_count):
+        m_h = mask[h]
+        nnz_h = nnz[h]
+        head_waves = []
+        for macro in range(n_macros):
+            rows = order_pad[h, macro * macro_size : (macro + 1) * macro_size]
+            unused = rows < mb
+            for _ in range(waves_per_block):
+                remaining_pos = torch.where(unused)[0]
+                if remaining_pos.numel() == 0:
+                    head_waves.append(torch.full((wave_size,), mb, device=device, dtype=torch.long))
+                    continue
+
+                seed_pos = remaining_pos[0]
+                seed = rows[seed_pos]
+                unused[seed_pos] = False
+                selected_chunks = [seed.view(1)]
+                selected_count = 1
+                wave_union = m_h[seed].clone()
+
+                while selected_count < wave_size:
+                    remaining_pos = torch.where(unused)[0]
+                    if remaining_pos.numel() == 0:
+                        break
+                    pool_pos = remaining_pos[: min(candidate_window, remaining_pos.numel())]
+                    pool = rows[pool_pos]
+                    score = (m_h[pool] & (~wave_union).unsqueeze(0)).sum(dim=1).float()
+                    take = min(select_chunk, wave_size - selected_count, int(pool.numel()))
+                    chosen_local = score.topk(k=take, largest=False, sorted=False).indices
+                    chosen_pos = pool_pos[chosen_local]
+                    chosen = rows[chosen_pos]
+                    unused[chosen_pos] = False
+                    selected_chunks.append(chosen)
+                    selected_count += take
+                    wave_union |= m_h[chosen].any(dim=0)
+
+                wave = torch.cat(selected_chunks, dim=0)
+                if wave.numel() < wave_size:
+                    wave = torch.cat(
+                        [wave, torch.full((wave_size - wave.numel(),), mb, device=device, dtype=torch.long)],
+                        dim=0,
+                    )
+                wave_nnz = torch.where(
+                    wave < mb,
+                    nnz_h[wave.clamp(max=mb - 1)],
+                    torch.zeros_like(wave, dtype=nnz_h.dtype),
+                )
+                head_waves.append(wave[wave_nnz.argsort(descending=True)])
+        out_heads.append(torch.stack(head_waves[:n_waves], dim=0))
+
+    wave_rows = torch.stack(out_heads, dim=0)
+    valid = wave_rows < mb
+    return wave_rows[valid].view(h_count, mb).reshape(*leading, mb).contiguous()
+
+
+def banded_union_w8_reorder(mask_float, wave_size=132):
+    return banded_union_wave_reorder(mask_float, wave_size=wave_size, waves_per_block=8, candidate_window=1056)
+
+
+def banded_union_fast_reorder(mask_float, wave_size=132):
+    return banded_union_wave_reorder(
+        mask_float,
+        wave_size=wave_size,
+        waves_per_block=4,
+        candidate_window=max(2 * int(wave_size), int(wave_size)),
+        select_chunk=8,
+    )
+
+
+LOCAL_REORDER_REGISTRY = {
+    "banded_union_wave": banded_union_wave_reorder,
+    "banded_union_wave_w8": banded_union_w8_reorder,
+    "banded_union_fast": banded_union_fast_reorder,
+}
 #---------- 小算子拼接 Attention ----------
 def build_dense_mask(mask_mod, seq_len, device, dtype):
     row_indices = torch.arange(seq_len, device=device).unsqueeze(1)  # [S, 1]
@@ -361,6 +628,8 @@ def make_default_args(**overrides):
         selected_shapes=None,
         trim_outliers=True,
         causal_fastpath=True,
+        block_reorder_impl="external",
+        npu_reorder_selector=False,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -742,10 +1011,11 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             mode = params.pop("mode")
             block_q = 128  # SPARSE_Q_BLOCK_SIZE
             block_kv = 128  # SPARSE_KV_BLOCK_SIZE
+            block_mask_device = "cpu" if device_is_npu(args.device) else args.device
             mask = _build_bm(
                 mode=mode, q_len=args.seq_len, kv_len=args.seq_len,
                 block_q=block_q, block_kv=block_kv,
-                device=args.device, **params,
+                device=block_mask_device, **params,
             )
             density = mask.float().mean().item()
             print(f"[block mask] {mode}: density={density:.2%} shape={list(mask.shape)}")
@@ -769,7 +1039,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             ).to(args.device)
             bm_opts = dict(optimizations or {})
             bm_opts["PURE_BLOCK_SPARSE"] = True
-            flex_runner = make_flex_runner(q, k, v, score_mod, mask_mod, args,
+            flex_runner = make_flex_runner(q.clone(), k.clone(), v.clone(), score_mod, mask_mod, args,
                                            block_mask=block_mask_override,
                                            optimizations=bm_opts)
         else:
@@ -777,25 +1047,101 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                                            optimizations=optimizations)
         outputs["flex"], timings["flex"] = time_runner("Flex Attention", flex_runner, args)
 
-    if args.target in ("both", "manual") and mask_mod is not None:
+    if (
+        args.target in ("both", "manual")
+        or (args.target == "reorder" and args.compare)
+    ) and mask_mod is not None:
+        if extra_args.get("use_full_kv_metadata") and "_token_dense_mask" not in extra_args:
+            from pattern_to_block_mask import (
+                build_block_mask as _build_bm,
+                block_mask_to_token_mask,
+            )
+            params = extra_args["block_mask_params"].copy()
+            mode = params.pop("mode")
+            block_q = 128
+            block_kv = 128
+            block_mask_device = "cpu" if device_is_npu(args.device) else args.device
+            mask_for_manual = _build_bm(
+                mode=mode,
+                q_len=args.seq_len,
+                kv_len=args.seq_len,
+                block_q=block_q,
+                block_kv=block_kv,
+                device=block_mask_device,
+                **params,
+            )
+            extra_args["_token_dense_mask"] = block_mask_to_token_mask(
+                mask_for_manual,
+                block_q,
+                block_kv,
+                args.seq_len,
+                args.seq_len,
+            ).to(args.device)
         manual_dense = extra_args.get("_token_dense_mask")
         manual_runner = make_manual_runner(q, k, v, mask_mod, args, dense_mask_override=manual_dense)
         outputs["manual"], timings["manual"] = time_runner("Manual Attention", manual_runner, args)
 
-    # ── Reorder variant: external Q reorder + pure block-sparse ──
+    # ── Reorder variant: patent-style external Q/mask reorder by default ──
     reorder_hit_rate = None
-    if getattr(args, "enable_block_reorder", False) and _HAS_REORDER and device_is_npu(args.device):
+    reorder_enabled = getattr(args, "enable_block_reorder", False)
+    if reorder_enabled and getattr(args, "npu_reorder_selector", False):
+        reorder_enabled, selector_reason = apply_npu_reorder_selector(args)
+        print(f"[reorder selector] {selector_reason}")
+    if reorder_enabled and args.sparse_config == "causal":
+        print("[reorder] causal sparse-config skipped: causal has natural contiguous KV locality; reorder target is non-causal block-sparse patterns")
+        reorder_enabled = False
+    if (
+        reorder_enabled
+        and args.sparse_config != "causal"
+        and _HAS_REORDER
+        and device_is_npu(args.device)
+    ):
         # Clear any stale side-channel state
-        from torch_npu._inductor.kernel.flex_attention import get_and_clear_pending_perm
+        from torch_npu._inductor.kernel.flex_attention import (
+            get_and_clear_pending_perm,
+            set_pending_perm,
+        )
         get_and_clear_pending_perm()
         # Reset dynamo to prevent compilation deadlock when the reorder
         # produces a different template than the baseline.
         torch._dynamo.reset()
 
         block_mask_device = "cpu" if device_is_npu(args.device) else args.device
+        reorder_block_mask = block_mask_override if "block_mask_override" in locals() else None
+        mask_float = None
+        mask = None
 
         # Build block mask for reorder perm computation
-        if extra_args.get("use_full_kv_metadata"):
+        if args.sparse_config == "causal":
+            from pattern_to_block_mask import (
+                build_block_mask as _build_bm,
+                block_mask_to_full_kv,
+                empty_partial_metadata,
+            )
+            block_q = 128
+            block_kv = 128
+            mask = _build_bm(
+                mode="causal",
+                q_len=args.seq_len,
+                kv_len=args.seq_len,
+                block_q=block_q,
+                block_kv=block_kv,
+                device=block_mask_device,
+            )
+            n_q = mask.shape[2]
+            n_kv = mask.shape[3]
+            mask_float = mask[0, 0].float()
+            full_num, full_idx = block_mask_to_full_kv(mask)
+            kv_num, kv_idx = empty_partial_metadata(mask)
+            reorder_block_mask = BlockMask.from_kv_blocks(
+                kv_num_blocks=kv_num.to(args.device),
+                kv_indices=kv_idx.to(args.device),
+                full_kv_num_blocks=full_num.to(args.device),
+                full_kv_indices=full_idx.to(args.device),
+                BLOCK_SIZE=(block_q, block_kv),
+                mask_mod=mask_mod,
+            ).to(args.device)
+        elif extra_args.get("use_full_kv_metadata"):
             # FULL_KV metadata pattern: build block mask from pattern builder
             from pattern_to_block_mask import (
                 build_block_mask as _build_bm,
@@ -815,6 +1161,17 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             n_q = mask.shape[2]
             n_kv = mask.shape[3]
             mask_float = mask[0, 0].float()  # [MQ, NK]
+            if reorder_block_mask is None:
+                full_num, full_idx = block_mask_to_full_kv(mask)
+                kv_num, kv_idx = empty_partial_metadata(mask)
+                reorder_block_mask = BlockMask.from_kv_blocks(
+                    kv_num_blocks=kv_num.to(args.device),
+                    kv_indices=kv_idx.to(args.device),
+                    full_kv_num_blocks=full_num.to(args.device),
+                    full_kv_indices=full_idx.to(args.device),
+                    BLOCK_SIZE=(block_q, block_kv),
+                    mask_mod=mask_mod,
+                ).to(args.device)
         elif extra_args.get("build_block_mask_fn") and args.sparse_config:
             kv_num, kv_idx, _ = extra_args["build_block_mask_fn"](args.seq_len)
             kv_num_bh = kv_num.unsqueeze(0).unsqueeze(0)
@@ -826,7 +1183,8 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 full_kv_num_blocks=full_kv_num, full_kv_indices=full_kv_idx,
                 BLOCK_SIZE=(128, 128), mask_mod=mask_mod,
             ).to(args.device)
-            mask_float = _rebuild(
+            reorder_block_mask = bm
+            mask_float = rebuild_block_mask(
                 bm.kv_num_blocks.cpu(), bm.kv_indices.cpu(),
                 bm.kv_indices.shape[2], bm.kv_indices.shape[3],
                 full_kv_num_blocks=bm.full_kv_num_blocks.cpu() if bm.full_kv_num_blocks is not None else None,
@@ -836,11 +1194,13 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             n_q = mask_float.shape[1]
             n_kv = mask_float.shape[2]
         else:
-            bm = create_block_mask(
-                mask_mod, 1, 1, args.seq_len, args.seq_len,
-                device=block_mask_device,
-            ).to(args.device)
-            mask_float = _rebuild(
+            if reorder_block_mask is None:
+                reorder_block_mask = create_block_mask(
+                    mask_mod, 1, 1, args.seq_len, args.seq_len,
+                    device=block_mask_device,
+                ).to(args.device)
+            bm = reorder_block_mask
+            mask_float = rebuild_block_mask(
                 bm.kv_num_blocks.cpu(), bm.kv_indices.cpu(),
                 bm.kv_indices.shape[2], bm.kv_indices.shape[3],
                 full_kv_num_blocks=bm.full_kv_num_blocks.cpu() if bm.full_kv_num_blocks is not None else None,
@@ -868,25 +1228,37 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 baseline_hit = hits / max(total, 1)
         else:
             baseline_hit = compute_block_hit_rate(
-                bm.kv_indices, bm.kv_num_blocks,
-                bm.full_kv_indices, bm.full_kv_num_blocks,
+                reorder_block_mask.kv_indices, reorder_block_mask.kv_num_blocks,
+                reorder_block_mask.full_kv_indices, reorder_block_mask.full_kv_num_blocks,
             )
 
         t0 = time.perf_counter()
         try:
-            # Compute perm WITHOUT setting _PENDING_PERM.
-            from torch_npu._inductor.kernel.flex_attention_reorder import (
-                wave_overlap_reorder as _wav_reorder,
-            )
-            # mask_float was built in the section above (use_full_kv_metadata or build_block_mask_fn or create_block_mask)
-            perm_2d = _wav_reorder(mask_float.unsqueeze(0), wave_size=args.wave_size)
-            perm = perm_2d[0].to(torch.int32)
+            if args.block_reorder_mode == "identity":
+                perm = torch.arange(mask_float.shape[-2], dtype=torch.int32)
+                perm_2d = perm.unsqueeze(0)
+            else:
+                reorder_fn = LOCAL_REORDER_REGISTRY.get(args.block_reorder_mode)
+                if reorder_fn is None:
+                    reorder_fn = REORDER_REGISTRY.get(args.block_reorder_mode)
+                if reorder_fn is None and args.block_reorder_mode == "wave_overlap":
+                    from torch_npu._inductor.kernel.flex_attention_reorder import (
+                        wave_overlap_reorder as reorder_fn,
+                    )
+                if reorder_fn is None:
+                    raise ValueError(f"Unknown reorder mode: {args.block_reorder_mode}")
+                perm_2d = reorder_fn(mask_float.unsqueeze(0), wave_size=args.wave_size)
+                if isinstance(perm_2d, tuple):
+                    perm_2d = perm_2d[0]
+                perm = perm_2d[0].to(torch.int32)
             is_identity = torch.equal(perm, torch.arange(len(perm), dtype=torch.int32))
-            if is_identity:
+            if is_identity and not getattr(args, "allow_identity_reorder", False):
                 print("[reorder] Identity permutation — reorder skipped")
                 perm = None
+            elif is_identity:
+                print(f"[reorder] Identity permutation forced ({len(perm)} blocks)")
             else:
-                print(f"[reorder] Permutation set: {perm.tolist()}")
+                print(f"[reorder] Non-identity permutation computed ({len(perm)} blocks)")
         except Exception as e:
             print(f"[reorder] Error computing permutation: {e}")
             import traceback; traceback.print_exc()
@@ -894,97 +1266,184 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
         reorder_comp_ms = (time.perf_counter() - t0) * 1000.0
 
         if perm is not None:
-            # ── External Q-block reorder + Pure Block-Sparse ──
-            # Following vllm-omni reference (flash_attn.py L865-940):
-            #   Stage 1: Build dense mask → compute perm
-            #   Stage 2: Reorder Q via torch.gather (block level)
-            #   Stage 3: Reorder kv_indices / kv_num_blocks to match
-            #   Stage 4: Route ALL blocks as FULL (sparse=empty)
-            #   Stage 5: Call kernel with PURE_BLOCK_SPARSE (no subgraphs)
-            #   Stage 6: Un-permute output via torch.gather + inv_perm
-            B, H, S, D = q.shape
-            n_blocks = len(perm)
-            block_size = 128  # SPARSE_Q_BLOCK_SIZE
-            dev = q.device
+            reorder_args = SimpleNamespace(**vars(args))
+            if reorder_args.block_reorder_impl == "internal":
+                if reorder_args.causal_fastpath:
+                    print("[reorder] disabling causal fastpath for reorder run so PERM template can be selected")
+                    reorder_args.causal_fastpath = False
+                reorder_opts = dict(optimizations or {})
+                if extra_args.get("use_full_kv_metadata") or args.sparse_config == "causal":
+                    reorder_opts["PURE_BLOCK_SPARSE"] = True
+                if args.sparse_config == "causal":
+                    reorder_opts["PURE_BLOCK_SPARSE_CAUSAL"] = True
+                if args.wave_size > 1:
+                    reorder_opts["WAVE_SIZE"] = args.wave_size
+                    reorder_opts["ENABLE_REORDER"] = True
+                    if getattr(args, "wave_single_tile_debug", False):
+                        reorder_opts["WAVE_SINGLE_TILE_DEBUG"] = True
+                else:
+                    set_pending_perm(perm.unsqueeze(0))
+                reorder_block_mask_for_run = reorder_block_mask
+                if reorder_opts.get("PURE_BLOCK_SPARSE", False) and args.wave_size > 1:
+                    actual_kv_num = reorder_block_mask.kv_num_blocks
+                    actual_kv_idx = reorder_block_mask.kv_indices
+                    if (
+                        reorder_block_mask.full_kv_num_blocks is not None
+                        and reorder_block_mask.full_kv_indices is not None
+                        and int(reorder_block_mask.full_kv_num_blocks.max().item()) > 0
+                    ):
+                        actual_kv_num = reorder_block_mask.full_kv_num_blocks
+                        actual_kv_idx = reorder_block_mask.full_kv_indices
+                    reorder_block_mask_for_run = BlockMask.from_kv_blocks(
+                        kv_num_blocks=actual_kv_num,
+                        kv_indices=actual_kv_idx,
+                        full_kv_num_blocks=torch.zeros_like(actual_kv_num),
+                        full_kv_indices=torch.zeros_like(actual_kv_idx),
+                        BLOCK_SIZE=reorder_block_mask.BLOCK_SIZE,
+                        mask_mod=mask_mod,
+                    ).to(args.device)
+                if reorder_opts.get("PURE_BLOCK_SPARSE", False) and args.wave_size <= 1:
+                    actual_kv_num = reorder_block_mask.kv_num_blocks
+                    actual_kv_idx = reorder_block_mask.kv_indices
+                    if (
+                        reorder_block_mask.full_kv_num_blocks is not None
+                        and reorder_block_mask.full_kv_indices is not None
+                        and int(reorder_block_mask.full_kv_num_blocks.max().item()) > 0
+                    ):
+                        actual_kv_num = reorder_block_mask.full_kv_num_blocks
+                        actual_kv_idx = reorder_block_mask.full_kv_indices
 
-            # Build inverse permutation
-            perm_dev = perm.to(torch.int64).to(dev)
-            inv_perm_dev = torch.empty(n_blocks, dtype=torch.int64, device=dev)
-            inv_perm_dev[perm_dev] = torch.arange(n_blocks, dtype=torch.int64, device=dev)
-
-            # Stage 1: Reorder Q at block level (torch.gather)
-            q_blocks = q.view(B, H, n_blocks, block_size, D)
-            perm_expanded = perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, D)
-            q_reordered = torch.gather(q_blocks, 2, perm_expanded).reshape(B, H, S, D)
-
-            # Stage 2: Build reordered block mask
-            if extra_args.get("use_full_kv_metadata"):
-                # Reorder the block mask rows by perm
-                mask_reordered = mask[0, 0][perm_dev.cpu()]  # [MQ, NK] reordered rows
-                mask_reordered = mask_reordered.unsqueeze(0).unsqueeze(0)  # [1, 1, MQ, NK]
-                full_num_reordered, full_idx_reordered = block_mask_to_full_kv(mask_reordered)
-                kv_num_reordered, kv_idx_reordered = empty_partial_metadata(mask_reordered)
-                bm_reordered = BlockMask.from_kv_blocks(
-                    kv_num_blocks=kv_num_reordered.to(dev),
-                    kv_indices=kv_idx_reordered.to(dev),
-                    full_kv_num_blocks=full_num_reordered.to(dev),
-                    full_kv_indices=full_idx_reordered.to(dev),
-                    BLOCK_SIZE=(block_size, block_size),
-                    mask_mod=mask_mod,
-                ).to(dev)
+                    perm_prefix = torch.zeros_like(actual_kv_idx)
+                    if args.wave_size > 1:
+                        perm_prefix.view(-1)[: perm.numel()] = perm.to(
+                            dtype=torch.int32,
+                            device=actual_kv_idx.device,
+                        )
+                    else:
+                        sparse_q_multiple = reorder_block_mask.BLOCK_SIZE[0] // args.block_m
+                        tile_perm_vals = []
+                        for src_sparse in perm.tolist():
+                            for intra in range(sparse_q_multiple):
+                                tile_perm_vals.append(src_sparse * sparse_q_multiple + intra)
+                        tile_perm = torch.tensor(
+                            tile_perm_vals,
+                            dtype=torch.int32,
+                            device=actual_kv_idx.device,
+                        )
+                        perm_prefix.view(-1)[: tile_perm.numel()] = tile_perm
+                    zeros_full_num = torch.zeros_like(actual_kv_num)
+                    reorder_block_mask_for_run = BlockMask.from_kv_blocks(
+                        kv_num_blocks=actual_kv_num,
+                        kv_indices=actual_kv_idx,
+                        full_kv_num_blocks=zeros_full_num,
+                        full_kv_indices=perm_prefix,
+                        BLOCK_SIZE=reorder_block_mask.BLOCK_SIZE,
+                        mask_mod=mask_mod,
+                    ).to(args.device)
+                reorder_runner = make_flex_runner(
+                    q.clone(), k.clone(), v.clone(),
+                    score_mod, mask_mod, reorder_args,
+                    block_mask=reorder_block_mask_for_run,
+                    optimizations=reorder_opts if reorder_opts else None,
+                    _graph_salt=torch.tensor([1], device=q.device),
+                )
+                outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
+                    f"Flex+{args.block_reorder_mode}+internal", reorder_runner, reorder_args)
+                reorder_hit_rate = (baseline_hit, baseline_hit)
+                print(
+                    f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
+                    f"| kernel time: {timings.get('flex_reorder', 0):.3f} ms "
+                    f"| comp/kernel ratio: {reorder_comp_ms / max(timings.get('flex_reorder', 1e-6), 1e-6):.2%}"
+                )
+                print("  ── using kernel-internal PERM; metadata hit-rate metric is unchanged by design")
+                timings["reorder_comp"] = reorder_comp_ms
             else:
-                # Reorder kv_indices and kv_num_blocks from the existing block mask
-                kv_idx_perm = perm_dev.view(1, 1, n_blocks, 1).expand(1, 1, n_blocks, bm.kv_indices.shape[-1])
-                kv_indices_reordered = torch.gather(bm.kv_indices, 2, kv_idx_perm)
-                kv_num_perm = perm_dev.view(1, 1, n_blocks).expand(1, 1, n_blocks)
-                kv_num_reordered = torch.gather(bm.kv_num_blocks, 2, kv_num_perm)
-                zeros_kv_num = torch.zeros_like(kv_num_reordered)
-                zeros_kv_idx = torch.zeros_like(kv_indices_reordered)
-                bm_reordered = BlockMask.from_kv_blocks(
-                    kv_num_blocks=zeros_kv_num,
-                    kv_indices=zeros_kv_idx,
-                    full_kv_num_blocks=kv_num_reordered,
-                    full_kv_indices=kv_indices_reordered,
-                    BLOCK_SIZE=bm.BLOCK_SIZE,
-                    mask_mod=mask_mod,
-                ).to(dev)
+                # Patent-style external path, matching the sparse-attn reference:
+                # gather Q blocks by perm, gather sparse metadata rows by the same
+                # perm, run a stable single-tile block-sparse kernel, then invert.
+                B, H, S, D = q.shape
+                n_blocks = len(perm)
+                block_size = 128
+                dev = q.device
 
-            # Stage 3: Call flex_attention with PURE_BLOCK_SPARSE
-            reorder_opts = {"PURE_BLOCK_SPARSE": True}
-            q2, k2, v2 = q_reordered.clone(), k.clone(), v.clone()
-            reorder_runner = make_flex_runner(
-                q2, k2, v2, score_mod, mask_mod, args,
-                block_mask=bm_reordered,
-                optimizations=reorder_opts,
-            )
+                perm_dev = perm.to(torch.int64).to(dev)
+                inv_perm_cpu = torch.empty(n_blocks, dtype=torch.int64)
+                inv_perm_cpu[perm.to(torch.int64).cpu()] = torch.arange(n_blocks, dtype=torch.int64)
+                inv_perm_dev = inv_perm_cpu.to(dev)
 
-            outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
-                f"Flex+{args.block_reorder_mode}", reorder_runner, args)
+                q_blocks = q.view(B, H, n_blocks, block_size, D)
+                perm_expanded = perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, D)
+                q_reordered = torch.gather(q_blocks, 2, perm_expanded).reshape(B, H, S, D)
 
-            # Stage 4: Un-permute output via torch.gather with inverse perm
-            out_reordered = outputs["flex_reorder"]
-            out_blocks = out_reordered.view(B, H, n_blocks, block_size, out_reordered.shape[-1])
-            inv_expanded = inv_perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, out_blocks.shape[-1])
-            out_unperm = torch.gather(out_blocks, 2, inv_expanded)
-            outputs["flex_reorder"] = out_unperm.reshape(B, H, S, out_reordered.shape[-1])
+                if extra_args.get("use_full_kv_metadata"):
+                    mask_reordered = mask[0, 0][perm_dev.cpu()]
+                    mask_reordered = mask_reordered.unsqueeze(0).unsqueeze(0)
+                    full_num_reordered, full_idx_reordered = block_mask_to_full_kv(mask_reordered)
+                    full_idx_reordered = apply_kv_order_to_full_metadata(
+                        full_idx_reordered,
+                        full_num_reordered,
+                        getattr(reorder_args, "kv_order", "asc"),
+                        args.wave_size,
+                    )
+                    kv_num_reordered, kv_idx_reordered = empty_partial_metadata(mask_reordered)
+                    bm_reordered = BlockMask.from_kv_blocks(
+                        kv_num_blocks=kv_num_reordered.to(dev),
+                        kv_indices=kv_idx_reordered.to(dev),
+                        full_kv_num_blocks=full_num_reordered.to(dev),
+                        full_kv_indices=full_idx_reordered.to(dev),
+                        BLOCK_SIZE=(block_size, block_size),
+                        mask_mod=mask_mod,
+                    ).to(dev)
+                else:
+                    bm = reorder_block_mask
+                    kv_idx_perm = perm_dev.view(1, 1, n_blocks, 1).expand(1, 1, n_blocks, bm.kv_indices.shape[-1])
+                    kv_indices_reordered = torch.gather(bm.kv_indices, 2, kv_idx_perm)
+                    kv_num_perm = perm_dev.view(1, 1, n_blocks).expand(1, 1, n_blocks)
+                    kv_num_reordered = torch.gather(bm.kv_num_blocks, 2, kv_num_perm)
+                    zeros_kv_num = torch.zeros_like(kv_num_reordered)
+                    zeros_kv_idx = torch.zeros_like(kv_indices_reordered)
+                    bm_reordered = BlockMask.from_kv_blocks(
+                        kv_num_blocks=zeros_kv_num,
+                        kv_indices=zeros_kv_idx,
+                        full_kv_num_blocks=kv_num_reordered,
+                        full_kv_indices=kv_indices_reordered,
+                        BLOCK_SIZE=bm.BLOCK_SIZE,
+                        mask_mod=mask_mod,
+                    ).to(dev)
 
-            reorder_hit_rate = (baseline_hit, baseline_hit)
-            print(
-                f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
-                f"| kernel time: {timings.get('flex_reorder', 0):.3f} ms "
-                f"| comp/kernel ratio: {reorder_comp_ms / max(timings.get('flex_reorder', 1e-6), 1e-6):.2%}"
-            )
-            timings["reorder_comp"] = reorder_comp_ms
+                reorder_opts = {"PURE_BLOCK_SPARSE": True}
+                reorder_runner = make_flex_runner(
+                    q_reordered.clone(), k.clone(), v.clone(),
+                    score_mod, mask_mod, reorder_args,
+                    block_mask=bm_reordered,
+                    optimizations=reorder_opts,
+                )
+                outputs["flex_reorder"], timings["flex_reorder"] = time_runner(
+                    f"Flex+{args.block_reorder_mode}+external", reorder_runner, reorder_args)
+
+                out_reordered = outputs["flex_reorder"]
+                out_blocks = out_reordered.view(B, H, n_blocks, block_size, out_reordered.shape[-1])
+                inv_expanded = inv_perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, out_blocks.shape[-1])
+                out_unperm = torch.gather(out_blocks, 2, inv_expanded)
+                outputs["flex_reorder"] = out_unperm.reshape(B, H, S, out_reordered.shape[-1])
+                reorder_hit_rate = (baseline_hit, baseline_hit)
+                print(
+                    f"  ── reorder computation time (CPU): {reorder_comp_ms:.3f} ms "
+                    f"| kernel time: {timings.get('flex_reorder', 0):.3f} ms "
+                    f"| comp/kernel ratio: {reorder_comp_ms / max(timings.get('flex_reorder', 1e-6), 1e-6):.2%}"
+                )
+                timings["reorder_comp"] = reorder_comp_ms
         else:
             reorder_hit_rate = (baseline_hit, baseline_hit)
             print("[reorder] Identity permutation — reorder skipped")
 
     close = None
     stats = None
-    if args.target == "both" and args.compare:
+    if args.compare and "manual" in outputs:
         dtype = dtype_from_name(args.dtype)
         rtol, atol = tolerance_for(dtype, args.rtol, args.atol)
         print(f"rtol={rtol}, atol={atol}")
+    if args.target == "both" and args.compare and "flex" in outputs and "manual" in outputs:
         close = torch.allclose(
             outputs["flex"].float(),
             outputs["manual"].float(),
@@ -1004,41 +1463,40 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
             print(f"  Hit rate: {reorder_hit_rate[0]:.4f} → {reorder_hit_rate[1]:.4f} "
                   f"(delta: {reorder_hit_rate[1] - reorder_hit_rate[0]:+.4f})")
 
-        # ── Reorder vs manual comparison (not done above) ──
-        if "flex_reorder" in outputs and "manual" in outputs and args.compare:
-            print("\n--- flex_reorder vs manual ---")
-            close_reorder = torch.allclose(
-                outputs["flex_reorder"].float(),
-                outputs["manual"].float(),
-                rtol=rtol,
-                atol=atol,
-            )
-            reorder_stats = detailed_compare(
-                outputs["flex_reorder"],
-                outputs["manual"],
-                rtol=rtol,
-                atol=atol,
-                topk=args.topk,
-            )
+    # ── Reorder vs manual comparison ──
+    if "flex_reorder" in outputs and "manual" in outputs and args.compare:
+        print("\n--- flex_reorder vs manual ---")
+        close_reorder = torch.allclose(
+            outputs["flex_reorder"].float(),
+            outputs["manual"].float(),
+            rtol=rtol,
+            atol=atol,
+        )
+        reorder_stats = detailed_compare(
+            outputs["flex_reorder"],
+            outputs["manual"],
+            rtol=rtol,
+            atol=atol,
+            topk=args.topk,
+        )
+        stats = reorder_stats
+        close = close_reorder
 
-            # Extra NaN analysis for reorder output
-            o_reorder = outputs["flex_reorder"]
-            o_manual = outputs["manual"]
-            if torch.isnan(o_reorder).any():
-                nan_mask = torch.isnan(o_reorder)
-                nan_count = nan_mask.sum().item()
-                total = o_reorder.numel()
-                print(f"  NaN count: {nan_count}/{total} ({100.0*nan_count/total:.2f}%)")
-                # Check if NaN is per-sequence-position
-                nan_per_pos = nan_mask.any(dim=-1).any(dim=1).float().mean(dim=0)  # [S]
-                nan_seq_positions = torch.where(nan_per_pos > 0)[0]
-                print(f"  Number of sequence positions with any NaN: {len(nan_seq_positions)}/{o_reorder.shape[2]}")
-                # Check if NaN correlates with reorder
-                if reorder_hit_rate:
-                    bsl, reord = reorder_hit_rate
-                    print(f"  (note: hit rate is {bsl:.4f} -> {reord:.4f}, hit rate=0 may indicate empty block rows)")
+        # Extra NaN analysis for reorder output
+        o_reorder = outputs["flex_reorder"]
+        if torch.isnan(o_reorder).any():
+            nan_mask = torch.isnan(o_reorder)
+            nan_count = nan_mask.sum().item()
+            total = o_reorder.numel()
+            print(f"  NaN count: {nan_count}/{total} ({100.0*nan_count/total:.2f}%)")
+            nan_per_pos = nan_mask.any(dim=-1).any(dim=1).float().mean(dim=0)
+            nan_seq_positions = torch.where(nan_per_pos > 0)[0]
+            print(f"  Number of sequence positions with any NaN: {len(nan_seq_positions)}/{o_reorder.shape[2]}")
+            if reorder_hit_rate:
+                bsl, reord = reorder_hit_rate
+                print(f"  (note: hit rate is {bsl:.4f} -> {reord:.4f}, hit rate=0 may indicate empty block rows)")
 
-            print("✅ reorder 测试通过（allclose=True）" if close_reorder else "❌ reorder 测试失败（allclose=False）")
+        print("✅ reorder 测试通过（allclose=True）" if close_reorder else "❌ reorder 测试失败（allclose=False）")
 
     return {
         "outputs": outputs,
@@ -1111,6 +1569,40 @@ def run_shape_sweep(args, score_mod=identity, mask_mod=causal_mask, optimization
     }
 
 
+def prepare_sparse_execution(args):
+    # Support both --sparse-config CLI arg and SPARSE_CONFIG env var.
+    if args.sparse_config is None and "SPARSE_CONFIG" in os.environ:
+        args.sparse_config = os.environ["SPARSE_CONFIG"]
+    if not args.sparse_config:
+        return identity, causal_mask, None, {}
+
+    sparse_cfg = get_sparse_config(args.sparse_config)
+    score_mod = sparse_cfg.get("score_mod", identity)
+    mask_mod = sparse_cfg.get("mask_mod", causal_mask)
+    optimizations = sparse_cfg.get("optimizations", None)
+    print(f"[sparse-config] {args.sparse_config}: {sparse_cfg.get('description', '')}")
+
+    if sparse_cfg.get("build_block_mask"):
+        from sparse_masks import build_random_block_sparse_mask
+        extra_args = {
+            "sparse_cfg": sparse_cfg,
+            "build_block_mask_fn": build_random_block_sparse_mask,
+        }
+        if mask_mod is None:
+            mask_mod = causal_mask
+    elif sparse_cfg.get("use_full_kv_metadata"):
+        extra_args = {
+            "sparse_cfg": sparse_cfg,
+            "use_full_kv_metadata": True,
+            "block_mask_params": sparse_cfg.get("block_mask_params", {}).copy(),
+        }
+        if mask_mod is None:
+            mask_mod = causal_mask
+    else:
+        extra_args = {}
+    return score_mod, mask_mod, optimizations, extra_args
+
+
 def profile_target(args):
     resolve_device(args)
     print(
@@ -1119,7 +1611,14 @@ def profile_target(args):
         f"mstx={args.mstx}"
     )
     args.compare = False
-    run_benchmark(args)
+    score_mod, mask_mod, optimizations, extra_args = prepare_sparse_execution(args)
+    run_benchmark(
+        args,
+        score_mod=score_mod,
+        mask_mod=mask_mod,
+        optimizations=optimizations,
+        extra_args=extra_args,
+    )
 
 
 def target_argv_for_msprof(args, target):
@@ -1172,6 +1671,16 @@ def target_argv_for_msprof(args, target):
         argv.extend(["--sparse-config", args.sparse_config])
     if args.enable_block_reorder:
         argv.append("--enable-block-reorder")
+        argv.extend(["--block-reorder-impl", args.block_reorder_impl])
+        argv.extend(["--block-reorder-mode", args.block_reorder_mode])
+        argv.extend(["--wave-size", str(args.wave_size)])
+        argv.extend(["--kv-order", args.kv_order])
+        if getattr(args, "npu_reorder_selector", False):
+            argv.append("--npu-reorder-selector")
+        if getattr(args, "allow_identity_reorder", False):
+            argv.append("--allow-identity-reorder")
+    if not args.causal_fastpath:
+        argv.append("--no-causal-fastpath")
     return argv
 
 
@@ -1270,12 +1779,23 @@ def run_sweep_mode(args):
                 "--shape", shape,
                 "--warmup", str(args.warmup),
                 "--repeat", str(args.repeat),
+                "--sparse-config", config,
                 "--no-compare" if not args.compare else "",
             ]
+            if args.enable_block_reorder:
+                cmd.extend([
+                    "--enable-block-reorder",
+                    "--block-reorder-impl", args.block_reorder_impl,
+                    "--block-reorder-mode", args.block_reorder_mode,
+                    "--wave-size", str(args.wave_size),
+                    "--kv-order", args.kv_order,
+                ])
+                if getattr(args, "npu_reorder_selector", False):
+                    cmd.append("--npu-reorder-selector")
+            if not args.causal_fastpath:
+                cmd.append("--no-causal-fastpath")
             cmd = [c for c in cmd if c]
             label = f"  [{config}] {shape}"
-
-            env = {**os.environ, "SPARSE_CONFIG": config}
             start = time.time()
             try:
                 result = subprocess.run(
@@ -1283,7 +1803,6 @@ def run_sweep_mode(args):
                     capture_output=True,
                     text=True,
                     timeout=args.warmup * args.repeat * 30 + 60,  # generous per test
-                    env=env,
                 )
                 elapsed = time.time() - start
 
@@ -1368,7 +1887,7 @@ def parse_args():
         choices=["benchmark", "sweep", "profile-target", "msprof", "unittest"],
         default="benchmark",
     )
-    parser.add_argument("--target", choices=["both", "flex", "manual"], default="both")
+    parser.add_argument("--target", choices=["both", "flex", "manual", "reorder"], default="both")
     parser.add_argument("--batch", type=int, default=B)
     parser.add_argument("--heads", type=int, default=H)
     parser.add_argument("--seq-len", type=int, default=S)
@@ -1453,6 +1972,11 @@ def parse_args():
     parser.add_argument("--rtol", type=float, default=None)
     parser.add_argument("--atol", type=float, default=None)
     parser.add_argument("--topk", type=int, default=10)
+    parser.add_argument(
+        "--save-output",
+        default=None,
+        help="Optional path to torch.save the primary output tensor for long-sequence correctness checks.",
+    )
     parser.add_argument("--enable-block-reorder", action="store_true",
                         help="Enable block-level query reordering via spectral wave-overlap.")
     parser.add_argument(
@@ -1484,10 +2008,37 @@ def parse_args():
     )
     parser.set_defaults(causal_fastpath=True)
     parser.add_argument("--block-reorder-mode", default="wave_overlap",
-                        choices=sorted(set(["wave_overlap"] + list(REORDER_REGISTRY.keys()))),
+                        choices=sorted(set(["identity", "wave_overlap"] + list(REORDER_REGISTRY.keys()) + list(LOCAL_REORDER_REGISTRY.keys()))),
                         help="Reorder mode (default: wave_overlap).")
+    parser.add_argument(
+        "--block-reorder-impl",
+        choices=["internal", "external"],
+        default="external",
+        help="Reorder implementation. external is patent-style Q/metadata gather; internal is experimental and may segfault on NPU.",
+    )
     parser.add_argument("--wave-size", type=int, default=132,
                         help="Wave partition size for reorder algorithms (default: 132).")
+    parser.add_argument(
+        "--kv-order",
+        choices=["asc", "desc", "snake", "snake_inv", "boundary_dp", "edge_dp"],
+        default="asc",
+        help="KV column order for external FULL_KV reorder path.",
+    )
+    parser.add_argument(
+        "--wave-single-tile-debug",
+        action="store_true",
+        help="Diagnostic mode: use wave grid but emit only one real Q-tile body per program.",
+    )
+    parser.add_argument(
+        "--allow-identity-reorder",
+        action="store_true",
+        help="Run the external/internal reorder path even when the computed permutation is identity.",
+    )
+    parser.add_argument(
+        "--npu-reorder-selector",
+        action="store_true",
+        help="Use a conservative NPU reorder selector instead of the raw CLI reorder mode/kv-order.",
+    )
     parser.add_argument("--msprof-output", default=None)
     parser.add_argument("--msprof-aic-metrics", default="PipeUtilization")
     parser.add_argument(
@@ -1510,7 +2061,7 @@ def parse_args():
     if args.mode in ("profile-target", "msprof") and len(args.selected_shapes) != 1:
         parser.error(f"--mode {args.mode} currently supports exactly one shape")
     if args.mode == "profile-target" and args.target == "both":
-        parser.error("--mode profile-target requires --target flex or --target manual")
+        parser.error("--mode profile-target requires --target flex, manual, or reorder")
     return args
 
 
@@ -1521,41 +2072,21 @@ if __name__ == "__main__":
     torch._dynamo.config.suppress_errors = args.suppress_compile_errors
 
     if args.mode == "benchmark":
-        # Support both --sparse-config CLI arg and SPARSE_CONFIG env var
-        if args.sparse_config is None and "SPARSE_CONFIG" in os.environ:
-            args.sparse_config = os.environ["SPARSE_CONFIG"]
-        if args.sparse_config:
-            sparse_cfg = get_sparse_config(args.sparse_config)
-            score_mod = sparse_cfg.get("score_mod", identity)
-            mask_mod = sparse_cfg.get("mask_mod", causal_mask)
-            optimizations = sparse_cfg.get("optimizations", None)
-            print(f"[sparse-config] {args.sparse_config}: {sparse_cfg.get('description', '')}")
-
-            # Handle special patterns that need pre-built kv_indices
-            if sparse_cfg.get("build_block_mask"):
-                from sparse_masks import build_random_block_sparse_mask
-                extra_args = {"sparse_cfg": sparse_cfg, "build_block_mask_fn": build_random_block_sparse_mask}
-                if mask_mod is None:
-                    mask_mod = causal_mask  # flex_attention API needs a callable mask_mod
-            elif sparse_cfg.get("use_full_kv_metadata"):
-                # FULL_KV metadata patterns: block mask built on host,
-                # no mask_mod subgraph in kernel
-                extra_args = {
-                    "sparse_cfg": sparse_cfg,
-                    "use_full_kv_metadata": True,
-                    "block_mask_params": sparse_cfg.get("block_mask_params", {}).copy(),
-                }
-                if mask_mod is None:
-                    mask_mod = causal_mask  # API needs a callable (unused)
-            else:
-                extra_args = {}
-        else:
-            score_mod = identity
-            mask_mod = causal_mask
-            optimizations = None
-            extra_args = {}
+        score_mod, mask_mod, optimizations, extra_args = prepare_sparse_execution(args)
         result = run_shape_sweep(args, score_mod=score_mod, mask_mod=mask_mod,
                                  optimizations=optimizations, extra_args=extra_args)
+        if args.save_output and result and "outputs" in result:
+            output_key = None
+            for candidate in ("flex_reorder", "flex", "manual"):
+                if candidate in result["outputs"]:
+                    output_key = candidate
+                    break
+            if output_key is None:
+                raise RuntimeError("--save-output requested, but no output tensor was produced")
+            output_path = Path(args.save_output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(result["outputs"][output_key].detach().cpu(), output_path)
+            print(f"saved {output_key} output to {output_path}")
         if result and result.get("close") is False:
             sys.exit(1)
     elif args.mode == "sweep":
