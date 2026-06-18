@@ -25,72 +25,72 @@
 <text x="602.0" y="733.0" font-size="13" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="start" fill="#1f2a33">Newest (with reorder)</text>
 <text x="144.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 144.8 574.0)">causal</text>
 <text x="122.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<text x="144.8" y="532.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">ERR(-9)</text>
+<text x="144.8" y="532.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">SKIP</text>
 <text x="167.2" y="520.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">SKIP</text>
 <text x="258.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 258.2 574.0)">block diagonal 64 bs</text>
 <text x="235.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
 <rect x="249.2" y="547.4" width="18.0" height="2.6" fill="#F58518" rx="2"/>
-<text x="258.2" y="543.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">1.65</text>
+<text x="258.2" y="543.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">1.67</text>
 <rect x="271.8" y="547.4" width="18.0" height="2.6" fill="#54A24B" rx="2"/>
 <text x="280.8" y="543.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">1.66</text>
 <text x="371.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 371.8 574.0)">checkerboard 64 bs</text>
 <text x="349.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="362.8" y="106.7" width="18.0" height="443.3" fill="#F58518" rx="2"/>
-<text x="371.8" y="120.7" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">280.6</text>
-<rect x="385.2" y="106.1" width="18.0" height="443.9" fill="#54A24B" rx="2"/>
-<text x="394.2" y="120.1" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">281.0</text>
+<rect x="362.8" y="110.8" width="18.0" height="439.2" fill="#F58518" rx="2"/>
+<text x="371.8" y="124.8" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">278.0</text>
+<rect x="385.2" y="108.4" width="18.0" height="441.6" fill="#54A24B" rx="2"/>
+<text x="394.2" y="122.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">279.5</text>
 <text x="485.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 485.2 574.0)">sliding window 128 bs</text>
 <text x="462.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
 <rect x="476.2" y="546.0" width="18.0" height="4.0" fill="#F58518" rx="2"/>
 <text x="485.2" y="542.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">2.55</text>
 <rect x="498.8" y="546.0" width="18.0" height="4.0" fill="#54A24B" rx="2"/>
-<text x="507.8" y="542.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">2.54</text>
+<text x="507.8" y="542.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">2.53</text>
 <text x="598.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 598.8 574.0)">strided bs</text>
 <text x="576.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="589.8" y="327.8" width="18.0" height="222.2" fill="#F58518" rx="2"/>
-<text x="598.8" y="341.8" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">140.6</text>
-<rect x="612.2" y="328.2" width="18.0" height="221.8" fill="#54A24B" rx="2"/>
-<text x="621.2" y="342.2" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">140.4</text>
+<rect x="589.8" y="328.3" width="18.0" height="221.7" fill="#F58518" rx="2"/>
+<text x="598.8" y="342.3" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">140.3</text>
+<rect x="612.2" y="328.3" width="18.0" height="221.7" fill="#54A24B" rx="2"/>
+<text x="621.2" y="342.3" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">140.3</text>
 <text x="712.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 712.2 574.0)">dilated window bs</text>
 <text x="689.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
 <rect x="703.2" y="544.6" width="18.0" height="5.4" fill="#F58518" rx="2"/>
-<text x="712.2" y="540.6" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">3.40</text>
-<rect x="725.8" y="544.5" width="18.0" height="5.5" fill="#54A24B" rx="2"/>
-<text x="734.8" y="540.5" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">3.47</text>
+<text x="712.2" y="540.6" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">3.41</text>
+<rect x="725.8" y="544.6" width="18.0" height="5.4" fill="#54A24B" rx="2"/>
+<text x="734.8" y="540.6" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">3.42</text>
 <text x="825.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 825.8 574.0)">nested bs</text>
 <text x="803.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
 <rect x="816.8" y="435.4" width="18.0" height="114.6" fill="#F58518" rx="2"/>
-<text x="825.8" y="449.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">72.5</text>
-<rect x="839.2" y="436.2" width="18.0" height="113.8" fill="#54A24B" rx="2"/>
-<text x="848.2" y="450.2" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">72.0</text>
+<text x="825.8" y="449.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">72.6</text>
+<rect x="839.2" y="435.9" width="18.0" height="114.1" fill="#54A24B" rx="2"/>
+<text x="848.2" y="449.9" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">72.2</text>
 <text x="939.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 939.2 574.0)">hybrid sparse bs</text>
 <text x="916.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="930.2" y="393.8" width="18.0" height="156.2" fill="#F58518" rx="2"/>
-<text x="939.2" y="407.8" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">98.9</text>
-<rect x="952.8" y="394.6" width="18.0" height="155.4" fill="#54A24B" rx="2"/>
-<text x="961.8" y="408.6" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">98.4</text>
+<rect x="930.2" y="393.7" width="18.0" height="156.3" fill="#F58518" rx="2"/>
+<text x="939.2" y="407.7" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">98.9</text>
+<rect x="952.8" y="394.3" width="18.0" height="155.7" fill="#54A24B" rx="2"/>
+<text x="961.8" y="408.3" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">98.6</text>
 <text x="1052.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 1052.8 574.0)">global local bs</text>
 <text x="1030.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="1043.8" y="540.4" width="18.0" height="9.6" fill="#F58518" rx="2"/>
-<text x="1052.8" y="536.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">6.06</text>
-<rect x="1066.2" y="540.5" width="18.0" height="9.5" fill="#54A24B" rx="2"/>
-<text x="1075.2" y="536.5" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">6.04</text>
+<rect x="1043.8" y="540.5" width="18.0" height="9.5" fill="#F58518" rx="2"/>
+<text x="1052.8" y="536.5" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">6.00</text>
+<rect x="1066.2" y="540.6" width="18.0" height="9.4" fill="#54A24B" rx="2"/>
+<text x="1075.2" y="536.6" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">5.98</text>
 <text x="1166.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 1166.2 574.0)">multiscale dilated bs</text>
 <text x="1143.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
 <rect x="1157.2" y="541.9" width="18.0" height="8.1" fill="#F58518" rx="2"/>
-<text x="1166.2" y="537.9" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">5.11</text>
+<text x="1166.2" y="537.9" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">5.13</text>
 <rect x="1179.8" y="541.9" width="18.0" height="8.1" fill="#54A24B" rx="2"/>
-<text x="1188.8" y="537.9" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">5.15</text>
+<text x="1188.8" y="537.9" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">5.12</text>
 <text x="1279.8" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 1279.8 574.0)">prefix lm bs</text>
 <text x="1257.2" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="1270.8" y="106.7" width="18.0" height="443.3" fill="#F58518" rx="2"/>
-<text x="1279.8" y="120.7" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">280.5</text>
-<rect x="1293.2" y="107.3" width="18.0" height="442.7" fill="#54A24B" rx="2"/>
-<text x="1302.2" y="121.3" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">280.2</text>
+<rect x="1270.8" y="108.3" width="18.0" height="441.7" fill="#F58518" rx="2"/>
+<text x="1279.8" y="122.3" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">279.6</text>
+<rect x="1293.2" y="111.2" width="18.0" height="438.8" fill="#54A24B" rx="2"/>
+<text x="1302.2" y="125.2" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="white" font-weight="700">277.7</text>
 <text x="1393.2" y="574.0" font-size="11" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="end" fill="#28323b" transform="rotate(-38 1393.2 574.0)">band global bs</text>
 <text x="1370.8" y="544.0" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#4C78A8" font-weight="700">ERR(-9)</text>
-<rect x="1384.2" y="540.4" width="18.0" height="9.6" fill="#F58518" rx="2"/>
-<text x="1393.2" y="536.4" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">6.07</text>
+<rect x="1384.2" y="540.5" width="18.0" height="9.5" fill="#F58518" rx="2"/>
+<text x="1393.2" y="536.5" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#F58518" font-weight="700">5.98</text>
 <rect x="1406.8" y="540.5" width="18.0" height="9.5" fill="#54A24B" rx="2"/>
 <text x="1415.8" y="536.5" font-size="8" font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#54A24B" font-weight="700">5.99</text>
 </svg>

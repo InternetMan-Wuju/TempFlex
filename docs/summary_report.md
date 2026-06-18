@@ -1,6 +1,6 @@
 # Flex Attention NPU 优化总结报告
 
-> 日期: 2026-06-17  
+> 日期: 2026-06-18  
 > 设备: Ascend NPU 60GB  
 > 精度: bfloat16  
 > 主要对比: Raw flex / Newest without reorder / Newest with external reorder / Manual reference
@@ -9,10 +9,10 @@
 
 1. **Causal 不需要 reorder**。Newest 的 causal dense fastpath 已经能带来稳定收益，短中序列约 `1.1x-1.37x`，长序列仍有 `1.04x-1.09x`。
 2. **12 种稀疏模式能跑通的关键不是 row reorder，而是 FULL_KV / PURE_BLOCK_SPARSE 路径**。它把复杂 `mask_mod` subgraph 移到 host 侧生成 metadata，绕开 bishengir 对 `//`、`%`、`torch.where`、tensor index 等 lowering 的不稳定。
-3. **16K 上 row/KV reorder 本身确实有用，但集中在部分模式**。公平 A/B（identity external vs reorder external）下，`strided_bs`、`hybrid_sparse_bs`、`prefix_lm_bs`、`nested_bs` 有约 `2%-3%` 收益；`global_local_bs` 的端到端大收益主要来自 external/FULL_KV 路径，不是 row reorder 本身。
+3. **16K 上 row/KV reorder 本身确实有用，但集中在部分模式**。最新 optimized fair A/B（identity external vs optimized reorder external）下，`strided_bs`、`prefix_lm_bs`、`nested_bs`、`hybrid_sparse_bs` 分别为 `1.0363x / 1.0313x / 1.0290x / 1.0195x`；`checkerboard_64_bs`、`band_global_bs` 仍会退化。
 4. **32K/80K 下普通 no-reorder vs reorder/external 不是公平 speedup**。Raw 和 Newest without reorder 在非 causal FULL_KV sparse 长序列下无法稳定完成；因此不能用普通路径的 `CRASH/ERR(-9)` 去计算 reorder 加速。
-5. **公平 A/B 口径是 identity external vs reorder external**。两边都预先重排/拷贝 Q 和 sparse metadata，只改变 row/KV order。32K 下 `hybrid_sparse_bs / prefix_lm_bs / strided_bs` 有 `~2%-3%` 收益；80K 下收益更混合，`band_global_bs` 约 `1.0134x`，`hybrid_sparse_bs` 复跑后约 `1.0051x`。
-6. **reorder/external 仍需要 selector 白名单**。本轮 32K/80K 公平复测中 correctness 基本通过，但收益和退化都存在，不能默认全模式开启。
+5. **公平 A/B 口径是 identity external vs optimized reorder external**。两边都预先重排/拷贝 Q 和 sparse metadata，只改变 row/KV order。本轮 32K 表中 `strided_bs / nested_bs / hybrid_sparse_bs / prefix_lm_bs` 均达到 `>=1.01x` 且 allclose 通过。
+6. **80K reorder 仍不适合默认开启**。补测后 80K crash 行多数已补齐：`nested_bs` 小幅 `1.0047x`，`strided_bs` 基本持平，`dilated_window_bs` 略慢；`hybrid_sparse_bs` 的 exact-path 仍 crash，但 fallback `wave_overlap + snake_inv` 可跑通并有 `1.0036x` 小收益。当前 selector 仍不默认开启 80K reorder。`BLOCK_N=128` probe 显示 FULL_KV template 有更大性能空间，但 reorder 不稳定，因此下一步应优化默认 `BLOCK_N=64` 下的 `get_offset_for_next_block()` / FULL_KV traversal。
 
 ## 2. 实现口径
 
@@ -22,7 +22,7 @@
 |---|---|---|
 | Raw flex | 部署 `raw_flex` 后运行 `--target flex` | 原始实现基线 |
 | Newest without reorder | 部署 `Newest` 后运行 `--target flex` | 新版普通 flex 路径 |
-| Newest with reorder | `--target reorder --enable-block-reorder --block-reorder-impl external --block-reorder-mode wave_overlap --kv-order snake_inv` | external reorder 路径 |
+| Newest with reorder | `--target reorder --enable-block-reorder --block-reorder-impl external`，按 optimized fair selector 选择 reorder mode / KV order | external reorder 路径 |
 | Manual | `--target manual --no-compare` | Python/torch 参考实现或 dense reference |
 
 ### 2.2 公平性说明
@@ -32,7 +32,7 @@
 因此报告里把两类问题分开：
 
 - **可运行性对比**：Raw / Newest without reorder 是否能跑完。
-- **公平 reorder A/B**：identity external vs wave_overlap reorder external。只有这个口径能比较 reorder 本身收益或退化。
+- **公平 reorder A/B**：identity external vs optimized reorder external。只有这个口径能比较 reorder 本身收益或退化。
 
 ## 3. 稀疏模式支持: Subgraph -> Metadata
 
@@ -88,10 +88,9 @@ Newest 新增 causal dense fastpath，使用 3 输入专用模板，无 subgraph
 ### 5.2 关键观察
 
 - `causal` 不启用 reorder；Newest causal fastpath 在 `S=1024/4096/16384` 分别为 `1.2810x / 1.2748x / 1.1237x`。
-- 端到端表中，`strided_bs` 在三档短中序列上 reorder/external 都有正收益：`1.0767x / 1.0677x / 1.0343x`。
-- 16K 下多数 FULL_KV sparse 模式有 `1.003x-1.055x` 的 reorder/external 路径收益，但这张端到端表混入了 external/FULL_KV 路径差异。
-- 更公平的 16K identity external vs reorder external 表显示：`strided_bs`、`hybrid_sparse_bs`、`prefix_lm_bs`、`nested_bs` 的 row/KV reorder 本身仍有 `2%-3%` 收益。
-- `global_local_bs` 的端到端 `2.4x-3.3x` 大幅收益不能归因于 row reorder；公平 A/B 下只有 `1.0042x`，主要收益来自 external FULL_KV / pure block-sparse 路径差异。
+- 端到端表中，1K/4K 的 reorder/external 仍混入 external/FULL_KV 路径差异；16K 图和表已改用 optimized fair A/B。
+- 最新 16K optimized fair A/B 显示：`strided_bs` `1.0363x`、`prefix_lm_bs` `1.0313x`、`nested_bs` `1.0290x`、`hybrid_sparse_bs` `1.0195x`，均 allclose 通过。
+- `global_local_bs` 的端到端 `2.4x-3.3x` 大幅收益不能归因于 row reorder；最新 16K 公平 A/B 为 `0.9979x`，主要收益来自 external FULL_KV / pure block-sparse 路径差异。
 - Manual 在小/中序列部分模式有竞争力，尤其 `causal@1024/4096`；但 16K 下除 causal 外多数 FULL_KV sparse manual 已明显慢于 Newest。
 
 ### 5.3 详细数据
@@ -122,38 +121,39 @@ Newest 新增 causal dense fastpath，使用 3 输入专用模板，无 subgraph
 | 4096 | `prefix_lm_bs` | 1.148 | 1.132 | 1.063 | 0.983 | 1.0141x | 1.0649x | 0.8684x | manual 更快 |
 | 4096 | `sliding_window_128_bs` | 0.417 | 0.443 | 0.405 | 0.970 | 0.9413x | 1.0938x | 2.1896x | - |
 | 4096 | `strided_bs` | 0.725 | 0.741 | 0.694 | 0.967 | 0.9784x | 1.0677x | 1.3050x | - |
-| 16384 | `band_global_bs` | 1.464 | 1.437 | 1.424 | 21.407 | 1.0188x | 1.0091x | 14.8970x | - |
-| 16384 | `block_diagonal_64_bs` | 0.598 | 0.598 | 0.567 | 21.443 | 1.0000x | 1.0547x | 35.8579x | - |
+| 16384 | `band_global_bs` | 1.464 | 1.429 | 1.439 | 21.407 | 1.0245x | 0.9931x | 14.9804x | reorder 变慢 |
+| 16384 | `block_diagonal_64_bs` | 0.598 | 0.588 | 0.570 | 21.443 | 1.0170x | 1.0316x | 36.4677x | 明确收益 |
 | 16384 | `causal` | 14.502 | 12.906 | SKIP | 12.911 | 1.1237x | - | 1.0004x | causal 不启用 reorder |
-| 16384 | `checkerboard_64_bs` | 11.579 | 11.732 | 11.808 | 21.072 | 0.9870x | 0.9936x | 1.7961x | full row rerun; reorder 略慢 |
-| 16384 | `dilated_window_bs` | 0.946 | 0.943 | 0.908 | 21.633 | 1.0032x | 1.0385x | 22.9406x | - |
-| 16384 | `global_local_bs` | 4.667 | 4.676 | 1.413 | 20.315 | 0.9981x | 3.3093x | 4.3445x | external FULL_KV 路径收益显著 |
-| 16384 | `hybrid_sparse_bs` | 4.806 | 4.815 | 4.644 | 23.350 | 0.9981x | 1.0368x | 4.8494x | - |
-| 16384 | `multiscale_dilated_bs` | 1.282 | 1.261 | 1.257 | 20.523 | 1.0167x | 1.0032x | 16.2752x | - |
-| 16384 | `nested_bs` | 3.707 | 3.708 | 3.599 | 22.004 | 0.9997x | 1.0303x | 5.9342x | - |
-| 16384 | `prefix_lm_bs` | 11.847 | 12.032 | 11.626 | 21.620 | 0.9846x | 1.0349x | 1.7969x | - |
-| 16384 | `sliding_window_128_bs` | 0.771 | 0.759 | 0.734 | 23.007 | 1.0158x | 1.0341x | 30.3123x | - |
-| 16384 | `strided_bs` | 6.189 | 6.243 | 6.036 | 21.112 | 0.9914x | 1.0343x | 3.3817x | - |
+| 16384 | `checkerboard_64_bs` | 11.579 | 11.689 | 11.793 | 21.072 | 0.9906x | 0.9912x | 1.8027x | reorder 变慢 |
+| 16384 | `dilated_window_bs` | 0.946 | 0.925 | 0.911 | 21.633 | 1.0227x | 1.0154x | 23.3870x | 明确收益 |
+| 16384 | `global_local_bs` | 4.667 | 1.436 | 1.439 | 20.315 | 3.2500x | 0.9979x | 14.1469x | 基本持平 |
+| 16384 | `hybrid_sparse_bs` | 4.806 | 4.866 | 4.773 | 23.350 | 0.9877x | 1.0195x | 4.7986x | 明确收益 |
+| 16384 | `multiscale_dilated_bs` | 1.282 | 1.274 | 1.265 | 20.523 | 1.0063x | 1.0071x | 16.1091x | 小幅收益 |
+| 16384 | `nested_bs` | 3.707 | 3.721 | 3.616 | 22.004 | 0.9962x | 1.0290x | 5.9135x | 明确收益 |
+| 16384 | `prefix_lm_bs` | 11.847 | 12.043 | 11.678 | 21.620 | 0.9837x | 1.0313x | 1.7952x | 明确收益 |
+| 16384 | `sliding_window_128_bs` | 0.771 | 0.749 | 0.751 | 23.007 | 1.0294x | 0.9973x | 30.7170x | 基本持平 |
+| 16384 | `strided_bs` | 6.189 | 6.247 | 6.028 | 21.112 | 0.9907x | 1.0363x | 3.3795x | 明确收益 |
 
 ### 5.4 16K 公平 reorder A/B
 
-这张表只比较 **identity external vs reorder external**，两边都有相同的 external Q/metadata 处理，只改变 row/KV order。它比 5.3 的 Newest no-reorder vs Newest with reorder 更适合判断 row reorder 本身是否有效。
+这张表只比较 **identity external vs optimized reorder external**，两边都有相同的 external Q/metadata 处理，只改变 row/KV order。optimized reorder 使用当前白名单策略：`hybrid_sparse_bs / nested_bs / strided_bs / prefix_lm_bs` 走 `auction_union_fast + snake_inv`，其它模式 fallback 到 `wave_overlap + snake_inv`。
 
-完整结果见 [fair_reorder_16k.md](fair_reorder_16k.md)。
+完整结果见 [fair_reorder_optimized_16k.md](fair_reorder_optimized_16k.md)。
 
-| Config | Identity ms | Reorder ms | Speedup | allclose | 结论 |
-|--------|------------:|-----------:|--------:|----------|------|
-| `block_diagonal_64_bs` | 0.567 | 0.576 | 0.9844x | True | reorder 略慢 |
-| `checkerboard_64_bs` | 11.695 | 11.736 | 0.9965x | True | 基本持平 |
-| `sliding_window_128_bs` | 0.735 | 0.730 | 1.0068x | True | 小幅收益 |
-| `strided_bs` | 6.223 | 6.030 | 1.0320x | True | 明确收益 |
-| `dilated_window_bs` | 0.917 | 0.916 | 1.0011x | True | 基本持平 |
-| `nested_bs` | 3.687 | 3.606 | 1.0225x | True | 明确收益 |
-| `hybrid_sparse_bs` | 4.826 | 4.674 | 1.0325x | True | 明确收益 |
-| `global_local_bs` | 1.422 | 1.416 | 1.0042x | True | 端到端大收益主要来自 external 路径 |
-| `multiscale_dilated_bs` | 1.264 | 1.260 | 1.0032x | True | 基本持平 |
-| `prefix_lm_bs` | 11.952 | 11.628 | 1.0279x | True | 明确收益 |
-| `band_global_bs` | 1.438 | 1.438 | 1.0000x | True | 持平 |
+| Config | Mode | KV order | Identity ms | Reorder ms | Speedup | allclose | 结论 |
+|--------|------|----------|------------:|-----------:|--------:|----------|------|
+| `causal` | `SKIP` | `-` | SKIP | SKIP | - | - | causal 不启用 reorder |
+| `block_diagonal_64_bs` | `wave_overlap` | `snake_inv` | 0.588 | 0.570 | 1.0316x | True | 明确收益 |
+| `checkerboard_64_bs` | `wave_overlap` | `snake_inv` | 11.689 | 11.793 | 0.9912x | True | reorder 变慢 |
+| `sliding_window_128_bs` | `wave_overlap` | `snake_inv` | 0.749 | 0.751 | 0.9973x | True | 基本持平 |
+| `strided_bs` | `auction_union_fast` | `snake_inv` | 6.247 | 6.028 | 1.0363x | True | 明确收益 |
+| `dilated_window_bs` | `wave_overlap` | `snake_inv` | 0.925 | 0.911 | 1.0154x | True | 明确收益 |
+| `nested_bs` | `auction_union_fast` | `snake_inv` | 3.721 | 3.616 | 1.0290x | True | 明确收益 |
+| `hybrid_sparse_bs` | `auction_union_fast` | `snake_inv` | 4.866 | 4.773 | 1.0195x | True | 明确收益 |
+| `global_local_bs` | `wave_overlap` | `snake_inv` | 1.436 | 1.439 | 0.9979x | True | 基本持平 |
+| `multiscale_dilated_bs` | `wave_overlap` | `snake_inv` | 1.274 | 1.265 | 1.0071x | True | 小幅收益 |
+| `prefix_lm_bs` | `auction_union_fast` | `snake_inv` | 12.043 | 11.678 | 1.0313x | True | 明确收益 |
+| `band_global_bs` | `wave_overlap` | `snake_inv` | 1.429 | 1.439 | 0.9931x | True | reorder 变慢 |
 
 ## 6. 32K / 80K 长序列
 
@@ -169,46 +169,146 @@ Newest 新增 causal dense fastpath，使用 3 输入专用模板，无 subgraph
 
 ### 6.2 性能表
 
-这张表和 6.1 图表使用同一口径：Raw 来自原长序列矩阵；`Newest (without reorder)` 是 `identity external`；`Newest (with reorder)` 是 `wave_overlap reorder external`。`Speedup = without / with`。
+这张表和 6.1 图表使用同一口径：Raw 来自原长序列矩阵；`Newest (without reorder)` 是 `identity external`；`Newest (with reorder)` 是 optimized/fallback external reorder。`Speedup = without / with`。
 
 | Seq Len | Config | Raw | Newest (without reorder) | Newest (with reorder) | Speedup | allclose | 结论 |
 |--------:|--------|----:|-------------------------:|----------------------:|--------:|----------|------|
 | 32768 | `causal` | 50.059 | 47.401 | SKIP | - | - | causal 不启用 reorder; Newest/Raw 1.0561x |
-| 32768 | `block_diagonal_64_bs` | CRASH | 0.862 | 0.848 | 1.0165x | True | 明确收益 |
-| 32768 | `checkerboard_64_bs` | CRASH | 45.242 | 45.445 | 0.9955x | True | reorder 略慢 |
-| 32768 | `sliding_window_128_bs` | CRASH | 1.204 | 1.204 | 1.0000x | True | 基本持平 |
-| 32768 | `strided_bs` | CRASH | 23.404 | 22.949 | 1.0198x | True | 明确收益 |
-| 32768 | `dilated_window_bs` | CRASH | 1.540 | 1.539 | 1.0006x | True | 基本持平 |
-| 32768 | `nested_bs` | CRASH | 12.648 | 12.644 | 1.0003x | True | 基本持平 |
-| 32768 | `hybrid_sparse_bs` | CRASH | 17.161 | 16.661 | 1.0300x | True | 明确收益 |
-| 32768 | `global_local_bs` | CRASH | 2.566 | 2.572 | 0.9977x | True | 基本持平 |
-| 32768 | `multiscale_dilated_bs` | CRASH | 2.257 | 2.227 | 1.0135x | True | 明确收益 |
-| 32768 | `prefix_lm_bs` | CRASH | 46.196 | 45.232 | 1.0213x | True | 明确收益 |
-| 32768 | `band_global_bs` | CRASH | 2.611 | 2.619 | 0.9969x | True | reorder 略慢 |
+| 32768 | `block_diagonal_64_bs` | CRASH | 0.859 | 0.846 | 1.0154x | True | 明确收益 |
+| 32768 | `checkerboard_64_bs` | CRASH | 45.092 | 45.453 | 0.9921x | True | reorder 变慢 |
+| 32768 | `sliding_window_128_bs` | CRASH | 1.214 | 1.189 | 1.0210x | True | 明确收益 |
+| 32768 | `strided_bs` | CRASH | 23.227 | 22.766 | 1.0202x | True | 明确收益 |
+| 32768 | `dilated_window_bs` | CRASH | 1.533 | 1.543 | 0.9935x | True | reorder 变慢 |
+| 32768 | `nested_bs` | CRASH | 12.637 | 12.402 | 1.0189x | True | 明确收益 |
+| 32768 | `hybrid_sparse_bs` | CRASH | 16.903 | 16.669 | 1.0140x | True | 明确收益 |
+| 32768 | `global_local_bs` | CRASH | 2.567 | 2.553 | 1.0055x | True | 小幅收益 |
+| 32768 | `multiscale_dilated_bs` | CRASH | 2.227 | 2.211 | 1.0072x | True | 小幅收益 |
+| 32768 | `prefix_lm_bs` | CRASH | 45.955 | 45.428 | 1.0116x | True | 明确收益 |
+| 32768 | `band_global_bs` | CRASH | 2.567 | 2.595 | 0.9892x | True | reorder 变慢 |
 | 81920 | `causal` | ERR(-9) | ERR(-9) | SKIP | - | - | causal 不启用 reorder; 80K 原矩阵未跑通 |
-| 81920 | `block_diagonal_64_bs` | ERR(-9) | 1.651 | 1.657 | 0.9964x | True | reorder 略慢 |
-| 81920 | `checkerboard_64_bs` | ERR(-9) | 280.581 | 280.960 | 0.9987x | True | 基本持平 |
-| 81920 | `sliding_window_128_bs` | ERR(-9) | 2.552 | 2.540 | 1.0047x | True | 小幅收益 |
-| 81920 | `strided_bs` | ERR(-9) | 140.613 | 140.369 | 1.0017x | True | 基本持平 |
-| 81920 | `dilated_window_bs` | ERR(-9) | 3.405 | 3.467 | 0.9821x | True | reorder 变慢 |
-| 81920 | `nested_bs` | ERR(-9) | 72.539 | 72.044 | 1.0069x | True | 小幅收益 |
-| 81920 | `hybrid_sparse_bs` | ERR(-9) | 98.857 | 98.357 | 1.0051x | True | 小幅收益 |
-| 81920 | `global_local_bs` | ERR(-9) | 6.059 | 6.043 | 1.0026x | True | 基本持平 |
-| 81920 | `multiscale_dilated_bs` | ERR(-9) | 5.112 | 5.149 | 0.9928x | True | reorder 略慢 |
-| 81920 | `prefix_lm_bs` | ERR(-9) | 280.546 | 280.162 | 1.0014x | True | 基本持平 |
-| 81920 | `band_global_bs` | ERR(-9) | 6.071 | 5.991 | 1.0134x | True | 明确收益 |
+| 81920 | `block_diagonal_64_bs` | ERR(-9) | 1.669 | 1.660 | 1.0054x | True | 小幅收益 |
+| 81920 | `checkerboard_64_bs` | ERR(-9) | 277.973 | 279.488 | 0.9946x | True | reorder 变慢 |
+| 81920 | `sliding_window_128_bs` | ERR(-9) | 2.547 | 2.531 | 1.0063x | True | 小幅收益 |
+| 81920 | `strided_bs` | ERR(-9) | 140.296 | 140.328 | 0.9998x | True | 基本持平 |
+| 81920 | `dilated_window_bs` | ERR(-9) | 3.409 | 3.422 | 0.9962x | True | reorder 变慢 |
+| 81920 | `nested_bs` | ERR(-9) | 72.557 | 72.218 | 1.0047x | True | 小幅收益 |
+| 81920 | `hybrid_sparse_bs` | ERR(-9) | 98.913 | 98.554 | 1.0036x | True | 小幅收益 |
+| 81920 | `global_local_bs` | ERR(-9) | 5.995 | 5.979 | 1.0027x | True | 基本持平 |
+| 81920 | `multiscale_dilated_bs` | ERR(-9) | 5.134 | 5.117 | 1.0033x | True | 小幅收益 |
+| 81920 | `prefix_lm_bs` | ERR(-9) | 279.565 | 277.726 | 1.0066x | True | 小幅收益 |
+| 81920 | `band_global_bs` | ERR(-9) | 5.982 | 5.994 | 0.9980x | True | 基本持平 |
 
 ### 6.3 公平 correctness A/B
 
-长序列公平 A/B 使用 **identity external output vs wave_overlap reorder output**，两边都走 external Q/metadata 路径，只改变 row/KV order。测试使用 `warmup=3, repeat=5`，容差：`rtol=0.03, atol=0.03`。完整 correctness 明细见 [fair_reorder_32k_80k.md](fair_reorder_32k_80k.md)。
+长序列公平 A/B 使用 **identity external output vs optimized reorder output**，两边都走 external Q/metadata 路径，只改变 row/KV order。测试使用 `warmup=3, repeat=5`，容差：`rtol=0.03, atol=0.03`。完整 optimized 明细见 [fair_reorder_optimized_16k_32k_80k.md](fair_reorder_optimized_16k_32k_80k.md)，分段结果见 [fair_reorder_optimized_32k.md](fair_reorder_optimized_32k.md) 和 [fair_reorder_optimized_80k.md](fair_reorder_optimized_80k.md)。
+
+### 6.4 32K/80K repeat=20 稳定性复测
+
+为避免 repeat=5 的偶然波动，新增 [fair_reorder_autotune.md](fair_reorder_autotune.md) 和 [fair_reorder_auction_autotune.md](fair_reorder_auction_autotune.md)，使用 `warmup=5, repeat=20` 复测重点候选。32K 已经出现稳定 `>=1.01x` 的 selector 候选；80K 仍未达到 `>=1.01x`：
+
+| Seq Len | Config | Mode | KV order | Identity | Reorder | Speedup | allclose | 结论 |
+|--------:|--------|------|----------|---------:|--------:|--------:|----------|------|
+| 32768 | `band_global_bs` | `wave_overlap` | `snake_inv` | 2.544 | 2.554 | 0.9961x | True | 未达标 |
+| 32768 | `band_global_bs` | `wave_union_fast` | `snake_inv` | 2.547 | 2.543 | 1.0016x | True | 未达标 |
+| 32768 | `hybrid_sparse_bs` | `wave_overlap` | `snake_inv` | 16.852 | 16.665 | 1.0112x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `wave_union_fast` | `snake_inv` | 16.893 | 16.647 | 1.0148x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_fast` | `snake_inv` | 16.935 | 16.636 | 1.0180x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_exact_path` | `snake_inv` | 16.908 | 16.650 | 1.0155x | True | 达标 |
+| 32768 | `nested_bs` | `wave_overlap` | `snake_inv` | 12.613 | 12.452 | 1.0129x | True | 达标 |
+| 32768 | `nested_bs` | `wave_union_fast` | `snake_inv` | 12.622 | 12.479 | 1.0115x | True | 达标 |
+| 32768 | `nested_bs` | `auction_union_fast` | `snake_inv` | 12.600 | 12.435 | 1.0133x | True | 达标 |
+| 32768 | `nested_bs` | `auction_union_exact_path` | `snake_inv` | 12.601 | 12.439 | 1.0130x | True | 达标 |
+| 32768 | `strided_bs` | `wave_overlap` | `snake_inv` | 23.186 | 22.810 | 1.0165x | True | 达标 |
+| 32768 | `strided_bs` | `wave_union_fast` | `snake_inv` | 23.177 | 22.898 | 1.0122x | True | 达标 |
+| 32768 | `strided_bs` | `auction_union_fast` | `snake_inv` | 23.202 | 22.820 | 1.0167x | True | 达标 |
+| 32768 | `strided_bs` | `auction_union_exact_path` | `snake_inv` | 23.208 | 22.826 | 1.0167x | True | 达标 |
+| 81920 | `band_global_bs` | `wave_overlap` | `snake_inv` | 6.022 | 5.978 | 1.0074x | True | 未达标 |
+| 81920 | `band_global_bs` | `wave_union_fast` | `snake_inv` | 5.967 | 5.979 | 0.9980x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `wave_overlap` | `snake_inv` | 98.863 | 98.431 | 1.0044x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `wave_union_fast` | `snake_inv` | 98.890 | 98.499 | 1.0040x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_fast` | `snake_inv` | 98.917 | 98.320 | 1.0061x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_exact_path` | `snake_inv` | 98.961 | 98.188 | 1.0079x | True | 未达标 |
+| 81920 | `nested_bs` | `wave_overlap` | `snake_inv` | 72.596 | 72.357 | 1.0033x | True | 未达标 |
+| 81920 | `nested_bs` | `wave_union_fast` | `snake_inv` | 72.614 | 72.465 | 1.0021x | True | 未达标 |
+| 81920 | `nested_bs` | `auction_union_fast` | `snake_inv` | 72.640 | CRASH | - | - | 未达标 |
+| 81920 | `nested_bs` | `auction_union_exact_path` | `snake_inv` | 72.588 | 72.162 | 1.0059x | True | 未达标 |
+| 81920 | `strided_bs` | `wave_overlap` | `snake_inv` | 140.629 | 140.003 | 1.0045x | True | 未达标 |
+| 81920 | `strided_bs` | `wave_union_fast` | `snake_inv` | 140.533 | CRASH | - | - | 未达标 |
+| 81920 | `strided_bs` | `auction_union_fast` | `snake_inv` | 140.534 | 140.111 | 1.0030x | True | 未达标 |
+| 81920 | `strided_bs` | `auction_union_exact_path` | `snake_inv` | 140.701 | 140.554 | 1.0010x | True | 未达标 |
+
+本轮确认 `auction_union_fast` 在 32K `hybrid_sparse_bs / nested_bs / strided_bs` 上是有效迁移，最高 `1.0180x`；`auction_union_exact_path` 能改善部分 80K 稳定性和收益，但最高仍只有 `1.0079x`。因此当前 row/KV reorder 对 32K 已经有可用白名单，对 80K 仍只是小幅正信号，主优化方向应继续转向 FULL_KV / PURE_BLOCK_SPARSE template。
+
+### 6.5 KV orientation 聚焦复测
+
+新增 `union_boundary_dp`，目标是比 `boundary_dp` 的 lo/hi 边界代理更接近专利里的 KV orientation：用真实 wave start/end KV edge set 做 cold-transition DP。完整结果见 [fair_reorder_kv_orientation_focus.md](fair_reorder_kv_orientation_focus.md)。
+
+| Seq Len | Config | Mode | KV order | Identity | Reorder | Speedup | allclose | 结论 |
+|--------:|--------|------|----------|---------:|--------:|--------:|----------|------|
+| 32768 | `hybrid_sparse_bs` | `auction_union_fast` | `snake_inv` | 16.901 | 16.800 | 1.0060x | True | 未达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_fast` | `boundary_dp` | 16.944 | 16.664 | 1.0168x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_fast` | `union_boundary_dp` | 16.925 | 16.620 | 1.0184x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_exact_path` | `snake_inv` | 16.915 | 16.682 | 1.0140x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_exact_path` | `boundary_dp` | 16.887 | 16.660 | 1.0136x | True | 达标 |
+| 32768 | `hybrid_sparse_bs` | `auction_union_exact_path` | `union_boundary_dp` | 16.885 | 16.652 | 1.0140x | True | 达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_fast` | `snake_inv` | 98.797 | CRASH | - | - | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_fast` | `boundary_dp` | 98.720 | CRASH | - | - | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_fast` | `union_boundary_dp` | 98.905 | CRASH | - | - | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_exact_path` | `snake_inv` | 98.902 | 98.164 | 1.0075x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_exact_path` | `boundary_dp` | 98.920 | 98.286 | 1.0065x | True | 未达标 |
+| 81920 | `hybrid_sparse_bs` | `auction_union_exact_path` | `union_boundary_dp` | 98.847 | 98.167 | 1.0069x | True | 未达标 |
+
+结论：NPU FULL_KV template 对 KV orientation 有响应，32K 上 `union_boundary_dp` 明确优于本轮 `snake_inv`；但 80K 仍没有稳定超过 `1%`，且 `auction_union_fast` 在 80K hybrid 上 crash。因此 `union_boundary_dp` 暂不进入默认 selector，后续应优先做 template 层验证，而不是继续扩大 80K reorder 白名单。
+
+### 6.6 msprof 定位: 32K strided
+
+按照 `.claude/skills/Flex_attn_profiling.md` 的口径，对 `strided_bs@32768` 做了 `identity external` vs `wave_overlap + snake_inv external` 的 msprof 对比。完整记录见 [msprof_strided32k_reorder_analysis.md](msprof_strided32k_reorder_analysis.md)。
+
+| Metric | Identity external | Reorder external | Speedup |
+|---|---:|---:|---:|
+| `time_runner` avg | 23.347 ms | 22.925 ms | 1.0184x |
+| msprof op total | 190.4 ms | 186.9 ms | 1.0187x |
+| `triton_tem_fused_0` avg | 22.918 ms | 22.550 ms | 1.0163x |
+| helper total | 6.997 ms | 6.456 ms | 1.0838x |
+| AI CPU total | 6.363 ms | 5.810 ms | 1.0952x |
+
+结论：32K `strided_bs` 的 reorder 提升主要来自主 fused kernel 变快，而不是 helper 或 launch 减少。`triton_tem_fused_0` 占总 op 时间约 `96%`，cube utilization 已接近满载，因此 80K 若要稳定超过 `1%`，更可能需要 FULL_KV / PURE_BLOCK_SPARSE template 层面的优化，而不是继续只调 row permutation。
+
+### 6.7 msprof 定位: 32K hybrid KV orientation
+
+新增 [msprof_hybrid32k_template_analysis.md](msprof_hybrid32k_template_analysis.md)，对 `hybrid_sparse_bs@32768` 做 `identity external + asc` vs `auction_union_fast + union_boundary_dp` 的 template 层对比：
+
+| Metric | Identity external | Reorder external | Speedup |
+|---|---:|---:|---:|
+| `time_runner` avg | 17.083 ms | 16.759 ms | 1.0193x |
+| msprof op total | 139.9 ms | 137.9 ms | 1.0145x |
+| msprof task total | 139.3 ms | 137.2 ms | 1.0153x |
+| `triton_tem_fused_0` avg | 16.644 ms | 16.385 ms | 1.0158x |
+| helper total | 6.733 ms | 6.792 ms | 0.9913x |
+
+结论：`FULL_KV_IDX` 顺序确实会进入 fused kernel 的 K/V pointer advance，`union_boundary_dp` 的收益主要来自 `triton_tem_fused_0` 变快，而不是 helper 变少。80K identity external 的 msprof 采集触发 `exitCode:11` 且没有 device summary，因此下一步 80K template profile 需要用更小 repeat 或分段采集。
+
+### 6.8 FULL_KV traversal / BLOCK_N probe
+
+新增 [fullkv_traversal_blockn_probe.md](fullkv_traversal_blockn_probe.md)，专门验证 `get_offset_for_next_block()` / FULL_KV traversal 是否是 80K 更直接的优化点。Probe 使用 `hybrid_sparse_bs`、`auction_union_exact_path + union_boundary_dp`、`warmup=3, repeat=5`：
+
+| Seq Len | BLOCK_N | Identity external | Reorder external | Speedup | allclose | 结论 |
+|--------:|--------:|------------------:|-----------------:|--------:|----------|------|
+| 32768 | 64 | 17.136 | 16.667 | 1.0281x | True | reorder 有收益 |
+| 81920 | 64 | 98.951 | CRASH | - | - | 80K 稳定性不足 |
+| 32768 | 128 | 10.881 | CRASH | - | - | tile 变快但 reorder 不稳定 |
+| 81920 | 128 | 62.938 | 62.981 | 0.9993x | True | identity 明显变快，但 reorder 无收益 |
+
+额外小 shape 校验：`hybrid_sparse_bs@4096` 的 `BLOCK_N=64` vs `BLOCK_N=128` identity external 输出 `allclose=True`，`max_abs=0.001953125`。这说明 `BLOCK_N=128` 有 template 性能信号，但不能直接作为 selector 方案；它更像是在提示默认 `BLOCK_N=64` 下的 FULL_KV traversal 存在可优化空间。
 
 长序列结论：
 
 - Raw 和 Newest without reorder 在 32K/80K 非 causal sparse 上没有稳定完成，因此不能作为公平 speedup 分母。
 - 已通过 correctness 的行均 `allclose=True`，最大绝对误差不超过 `0.003906`。
-- 32K 下 reorder 本身更有价值：`hybrid_sparse_bs 1.0300x`、`prefix_lm_bs 1.0213x`、`strided_bs 1.0198x`。
-- 80K 下收益更混合：`band_global_bs 1.0134x` 最明显，`hybrid_sparse_bs` 复跑后为 `1.0051x`，`strided_bs` 只有 `1.0017x`，`dilated_window_bs` 和 `multiscale_dilated_bs` 退化。
-- `81920 hybrid_sparse_bs` 单独复跑后 reorder external 已通过 correctness，但收益只有约 `0.5%`，建议仍按白名单谨慎启用。
+- 本轮 optimized fair repeat=5 下，32K 有多行 `>=1.01x`：`strided_bs 1.0202x`、`nested_bs 1.0189x`、`hybrid_sparse_bs 1.0140x`、`prefix_lm_bs 1.0116x`；80K 补测后没有 `>=1.01x` 行，最高为 `prefix_lm_bs 1.0066x`，重点模式仍只能算小幅正信号或持平。
+- 32K repeat=20 下 reorder 本身已经有可用白名单：`hybrid_sparse_bs auction_union_fast 1.0180x`、`strided_bs auction_union_fast 1.0167x`、`nested_bs auction_union_fast 1.0133x`。
+- 80K repeat=20 下仍只有小幅正信号，最高为 `hybrid_sparse_bs auction_union_exact_path 1.0079x`；新增 `union_boundary_dp` 聚焦复测最高 `1.0075x`，没有稳定达到 `1%`。
+- 因此当前 selector 不默认开启 80K reorder；80K 的下一步主线应是 FlexAttention template 优化，尤其默认 `BLOCK_N=64` 下的 `get_offset_for_next_block()` / FULL_KV traversal，减少非 sparse-block 边界 step 的冗余 metadata load。
 
 ## 7. 历史 B/C 消融结论
 
@@ -227,15 +327,15 @@ Newest 新增 causal dense fastpath，使用 3 输入专用模板，无 subgraph
 风险：
 
 - external reorder 和普通 no-reorder 路径不同，长序列性能表不能直接解释为普通 no-reorder 到 reorder 的 speedup。
-- 部分模式 correctness 复跑中 reorder external crash，稳定性不足。
+- 早期 correctness 复跑中出现过 reorder external crash；当前最终性能表以 `allclose=True` 的稳定完成行为准。
 - block-level metadata 会牺牲 token-level mask 的细粒度表达能力；对 block-level pattern 等价，对精确 token-level pattern 可能有最多一个 block 边界误差。
 
 下一步建议：
 
-1. 优先修复 `band_global/checkerboard/global_local/prefix_lm` 的 external reorder crash。
-2. 对 `strided_bs@80K` 做 repeat=20 或多轮冷启动，确认 `~1%` 公平收益是否稳定。
-3. 给 selector 加白名单：只对 correctness 通过且收益稳定的模式启用 reorder。
-4. 缓存 `perm + reordered metadata`，减少 host 侧 reorder 开销。
+1. 缓存 `perm + reordered metadata`，减少 host 侧 reorder 开销。
+2. `auction_union_fast + exact_path` 离线/bitset 版本已经实现并完成 repeat=20 复测；32K 有收益，80K 仍未达标。下一步优先做 template 层优化，而不是继续默认扩大 reorder 白名单。
+3. 转向 FULL_KV / PURE_BLOCK_SPARSE template 优化，优先检查默认 `BLOCK_N=64` 下的 `get_offset_for_next_block()`、FULL_KV metadata traversal 和 80K msprof 采集稳定性；`BLOCK_N=128` 只作为诊断信号，不进入 selector。
+4. 保留 selector 白名单策略：只对 correctness 通过且 repeat=20 稳定 `>=1.01x` 的组合启用。
 5. 继续保留 causal fastpath，不把 causal 纳入 reorder 优化目标。
 
 ## 9. 测试配置
@@ -246,5 +346,7 @@ Newest 新增 causal dense fastpath，使用 3 输入专用模板，无 subgraph
 - Block size: `SPARSE_Q_BLOCK_SIZE=128`, `SPARSE_KV_BLOCK_SIZE=128`
 - 短中序列表: `B=1,H=2,D=128`, flex/reorder `warmup=3, repeat=5`, manual `warmup=1, repeat=3`
 - 长序列表: `B=1,H=2,D=128`, raw/newest/reorder `warmup=3, repeat=5`, manual `warmup=1, repeat=3`
-- 16K 公平 A/B: identity external vs wave_overlap reorder external, `warmup=3, repeat=5`, `rtol=0.03, atol=0.03`
-- 32K/80K 公平 A/B: identity external vs wave_overlap reorder external, `warmup=3, repeat=5`, `rtol=0.03, atol=0.03`
+- 16K 公平 A/B: identity external vs optimized reorder external, `warmup=3, repeat=5`, `rtol=0.03, atol=0.03`
+- 32K/80K 公平 A/B: identity external vs optimized reorder external, `warmup=3, repeat=5`, `rtol=0.03, atol=0.03`
+- 32K/80K 稳定性复测: identity external vs reorder external, `warmup=5, repeat=20`, `rtol=0.03, atol=0.03`
+- KV orientation 聚焦复测: `hybrid_sparse_bs`, `auction_union_fast/exact_path`, `snake_inv/boundary_dp/union_boundary_dp`, `warmup=5, repeat=20`

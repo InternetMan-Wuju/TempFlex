@@ -1,0 +1,39 @@
+[
+  {
+    "seq_len": 81920,
+    "sparse_config": "hybrid_sparse_bs",
+    "reorder_mode": "wave_overlap",
+    "kv_order": "snake_inv",
+    "identity_statuses": [
+      "CRASH"
+    ],
+    "reorder_statuses": [
+      "OK"
+    ],
+    "identity": {
+      "values": [],
+      "mean_ms": null,
+      "median_ms": null,
+      "min_ms": null,
+      "max_ms": null,
+      "std_ms": null
+    },
+    "reorder": {
+      "values": [
+        98.949
+      ],
+      "mean_ms": 98.949,
+      "median_ms": 98.949,
+      "min_ms": 98.949,
+      "max_ms": 98.949,
+      "std_ms": 0.0
+    },
+    "speedup_mean": null,
+    "speedup_median": null,
+    "max_abs_diff": null,
+    "mean_abs_diff": null,
+    "max_rel_diff": null,
+    "allclose": null,
+    "pass_threshold": false
+  }
+]

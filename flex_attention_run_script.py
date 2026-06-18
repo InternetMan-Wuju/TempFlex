@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+from dataclasses import dataclass
 from types import SimpleNamespace
 from torch.nn.attention.flex_attention import (
     create_block_mask,
@@ -42,7 +43,7 @@ try:
         REORDER_REGISTRY,
     )
     _HAS_REORDER = True
-except ImportError:
+except Exception:
     _HAS_REORDER = False
     REORDER_REGISTRY = {}
 
@@ -61,6 +62,23 @@ MSTX_DOMAIN = "flex_attention2"
 _TORCH_NPU = None
 _TORCH_NPU_IMPORT_ERROR = None
 _NPU_INDUCTOR_READY = False
+
+
+@dataclass
+class ReorderPlan:
+    """Backend-neutral description of a logical block traversal reorder.
+
+    The current external FULL_KV backend materializes this plan as reordered Q
+    blocks plus reordered metadata. A future direct mask/score backend should
+    consume the same logical plan without changing mask_mod/score_mod token
+    semantics.
+    """
+    q_perm: torch.Tensor
+    inv_perm: torch.Tensor
+    wave_id: torch.Tensor
+    kv_orientation: str
+    block_size: int = 128
+
 
 
 def import_torch_npu(required=False):
@@ -248,10 +266,94 @@ def _compute_edge_dp_desc_waves(full_idx, full_num, wave_size, edge_blocks=4):
     return desc_waves.reshape(*prefix, n_waves)
 
 
+def _compute_union_boundary_dp_desc_waves(
+    full_idx,
+    full_num,
+    wave_size,
+    edge_blocks=4,
+    jump_weight=0.05,
+    overlap_weight=0.25,
+):
+    """Choose KV direction by minimizing wave-to-wave cold edge transitions.
+
+    Unlike boundary_dp's lo/hi interval proxy, this uses the actual first/last
+    KV block sets for each wave. This is closer to the patent/FA4 boundary_dp
+    idea: preserve the hot KV edge from the previous wave and avoid cold-start
+    blocks at the beginning of the next wave.
+    """
+    src_idx = full_idx.detach().cpu()
+    src_num = full_num.detach().cpu()
+    *prefix, n_rows, n_cols = src_idx.shape
+    flat_idx = src_idx.reshape(-1, n_rows, n_cols)
+    flat_num = src_num.reshape(-1, n_rows)
+    h_count = flat_idx.shape[0]
+    wave_size = max(1, int(wave_size))
+    edge_blocks = max(1, int(edge_blocks))
+    n_waves = (n_rows + wave_size - 1) // wave_size
+
+    wave_start = torch.zeros(h_count, n_waves, n_cols, dtype=torch.bool)
+    wave_end = torch.zeros(h_count, n_waves, n_cols, dtype=torch.bool)
+    start_sum = torch.zeros(h_count, n_waves, dtype=torch.float32)
+    end_sum = torch.zeros(h_count, n_waves, dtype=torch.float32)
+    start_count = torch.zeros(h_count, n_waves, dtype=torch.float32)
+    end_count = torch.zeros(h_count, n_waves, dtype=torch.float32)
+
+    for h in range(h_count):
+        for row in range(n_rows):
+            count = int(flat_num[h, row].item())
+            if count <= 0:
+                continue
+            edge = min(edge_blocks, count)
+            wave = row // wave_size
+            start_cols = flat_idx[h, row, :edge].to(torch.long)
+            end_cols = flat_idx[h, row, count - edge : count].to(torch.long)
+            wave_start[h, wave, start_cols] = True
+            wave_end[h, wave, end_cols] = True
+            start_sum[h, wave] += start_cols.float().sum()
+            end_sum[h, wave] += end_cols.float().sum()
+            start_count[h, wave] += float(start_cols.numel())
+            end_count[h, wave] += float(end_cols.numel())
+
+    start_center = start_sum / start_count.clamp_min(1.0)
+    end_center = end_sum / end_count.clamp_min(1.0)
+    desc_waves = torch.zeros(h_count, n_waves, dtype=torch.bool)
+    if n_waves <= 1:
+        return desc_waves.reshape(*prefix, n_waves)
+
+    for h in range(h_count):
+        starts = (wave_start[h], wave_end[h])
+        ends = (wave_end[h], wave_start[h])
+        centers_start = (start_center[h], end_center[h])
+        centers_end = (end_center[h], start_center[h])
+        dp = torch.zeros(n_waves, 2, dtype=torch.float32)
+        parent = torch.zeros(n_waves, 2, dtype=torch.long)
+        for wave in range(1, n_waves):
+            cost = torch.empty(2, 2, dtype=torch.float32)
+            for prev_o in range(2):
+                for cur_o in range(2):
+                    prev_end = ends[prev_o][wave - 1]
+                    cur_start = starts[cur_o][wave]
+                    cold = (cur_start & (~prev_end)).sum().float()
+                    overlap = (cur_start & prev_end).sum().float()
+                    jump = (centers_end[prev_o][wave - 1] - centers_start[cur_o][wave]).abs()
+                    cost[prev_o, cur_o] = (
+                        dp[wave - 1, prev_o]
+                        + cold
+                        + float(jump_weight) * jump
+                        - float(overlap_weight) * overlap
+                    )
+            dp[wave], parent[wave] = cost.min(dim=0)
+        cur = int(dp[-1].argmin().item())
+        for wave in range(n_waves - 1, -1, -1):
+            desc_waves[h, wave] = bool(cur)
+            cur = int(parent[wave, cur].item()) if wave > 0 else 0
+    return desc_waves.reshape(*prefix, n_waves)
+
+
 def apply_kv_order_to_full_metadata(full_idx, full_num, kv_order, wave_size):
     if kv_order == "asc":
         return full_idx
-    if kv_order not in ("desc", "snake", "snake_inv", "boundary_dp", "edge_dp"):
+    if kv_order not in ("desc", "snake", "snake_inv", "boundary_dp", "edge_dp", "union_boundary_dp"):
         raise ValueError(f"Unsupported --kv-order: {kv_order}")
 
     device = full_idx.device
@@ -276,6 +378,16 @@ def apply_kv_order_to_full_metadata(full_idx, full_num, kv_order, wave_size):
         desc_rows = wave_desc.repeat_interleave(max(1, int(wave_size)), dim=-1)[..., :n_rows]
         desc_rows = desc_rows.reshape(*prefix, n_rows, 1).to(device=device)
         return torch.where(desc_rows, desc_idx, full_idx)
+    if kv_order == "union_boundary_dp":
+        wave_desc = _compute_union_boundary_dp_desc_waves(
+            full_idx,
+            full_num,
+            wave_size,
+            edge_blocks=4,
+        )
+        desc_rows = wave_desc.repeat_interleave(max(1, int(wave_size)), dim=-1)[..., :n_rows]
+        desc_rows = desc_rows.reshape(*prefix, n_rows, 1).to(device=device)
+        return torch.where(desc_rows, desc_idx, full_idx)
 
     row = torch.arange(n_rows, device=device).view(*([1] * (full_idx.ndim - 2)), n_rows, 1)
     desc_wave = ((row // max(1, int(wave_size))) % 2) == 1
@@ -290,18 +402,41 @@ def apply_npu_reorder_selector(args):
     seq_len = int(getattr(args, "seq_len", 0) or 0)
     disabled = {
         "causal": "causal has natural contiguous KV locality; use causal fastpath instead",
-        "sliding_window_128_bs": "80K repeat tests showed reorder regression",
         "dilated_window_bs": "80K repeat tests showed reorder regression",
-        "hybrid_sparse_bs": "wave_overlap reorder is crash-prone on this pattern",
     }
     if sparse_config in disabled:
         return False, disabled[sparse_config]
-    if sparse_config == "strided_bs" and seq_len >= 65536:
+    if seq_len >= 65536:
+        return False, (
+            "skip long-sequence reorder: 80K warmup=5 repeat=20 autotune did not "
+            "find a stable >=1.01x candidate"
+        )
+    stable_32k_modes = {
+        "hybrid_sparse_bs": "auction_union_fast",
+        "nested_bs": "auction_union_fast",
+        "strided_bs": "auction_union_fast",
+    }
+    if sparse_config in stable_32k_modes and 32768 <= seq_len < 65536:
         args.block_reorder_impl = "external"
-        args.block_reorder_mode = "wave_overlap"
+        args.block_reorder_mode = stable_32k_modes[sparse_config]
         args.kv_order = "snake_inv"
-        return True, "selected wave_overlap + snake_inv for strided_bs long sequence"
+        return True, f"selected {args.block_reorder_mode} + snake_inv for {sparse_config}@32K repeat=20 fair A/B win"
     return False, f"no validated NPU reorder win for sparse_config={sparse_config!r}, seq_len={seq_len}"
+
+
+def build_reorder_plan(perm, wave_size, kv_orientation="asc", block_size=128):
+    perm_cpu = perm.detach().to(torch.int64).cpu()
+    inv_perm = torch.empty_like(perm_cpu)
+    inv_perm[perm_cpu] = torch.arange(perm_cpu.numel(), dtype=torch.int64)
+    wave_size = max(1, int(wave_size))
+    wave_id = torch.arange(perm_cpu.numel(), dtype=torch.int64) // wave_size
+    return ReorderPlan(
+        q_perm=perm_cpu,
+        inv_perm=inv_perm,
+        wave_id=wave_id,
+        kv_orientation=str(kv_orientation),
+        block_size=int(block_size),
+    )
 
 
 def banded_union_wave_reorder(mask_float, wave_size=132, waves_per_block=4, candidate_window=768, select_chunk=1):
@@ -398,10 +533,252 @@ def banded_union_fast_reorder(mask_float, wave_size=132):
     )
 
 
+def wave_union_fast_reorder(mask_float, wave_size=132):
+    """Low-overhead row order that clusters rows by KV support interval.
+
+    This is a NPU-friendly approximation of the patent's wave-level KV-union
+    objective. It avoids the slow greedy Python loop in banded_union_wave and
+    instead sorts rows by the center of their valid KV support, then by NNZ.
+    For banded/window-like sparse masks this packs similar KV unions into the
+    same wave with O(MB log MB) host work.
+    """
+    *leading, mb, nb = mask_float.shape
+    h_count = 1 if not leading else math.prod(leading)
+    mask = mask_float.reshape(h_count, mb, nb).bool()
+    device = mask.device
+    cols = torch.arange(nb, device=device).view(1, 1, nb)
+    nnz = mask.sum(dim=2)
+    empty = nnz == 0
+    lo = torch.where(mask, cols, torch.full_like(cols, nb)).min(dim=2).values
+    hi = torch.where(mask, cols, torch.full_like(cols, -1)).max(dim=2).values
+    lo = torch.where(empty, torch.zeros_like(lo), lo)
+    hi = torch.where(empty, torch.zeros_like(hi), hi)
+    center2 = lo + hi
+
+    # Stable two-pass sort: rows with similar KV span center stay close, and
+    # dense rows are placed earlier inside equal-center bands for better wave fill.
+    nnz_order = nnz.argsort(dim=1, descending=True, stable=True)
+    center_sorted = torch.gather(center2, 1, nnz_order)
+    center_rank = center_sorted.argsort(dim=1, stable=True)
+    order = torch.gather(nnz_order, 1, center_rank)
+
+    # Keep each wave internally sorted by NNZ descending to preserve the existing
+    # wave scheduling property from wave_overlap/fiedler variants.
+    wave_size = max(1, int(wave_size))
+    n_waves = (mb + wave_size - 1) // wave_size
+    pad = n_waves * wave_size - mb
+    if pad > 0:
+        pad_idx = torch.arange(mb, mb + pad, device=device).view(1, -1).expand(h_count, -1)
+        order_padded = torch.cat([order, pad_idx], dim=1)
+        nnz_padded = torch.cat([nnz, torch.zeros(h_count, pad, dtype=nnz.dtype, device=device)], dim=1)
+    else:
+        order_padded = order
+        nnz_padded = nnz
+    wave_rows = order_padded.view(h_count, n_waves, wave_size)
+    wave_nnz = torch.where(
+        wave_rows < mb,
+        torch.gather(nnz_padded, 1, wave_rows.clamp(max=mb + pad - 1).reshape(h_count, -1)).view(h_count, n_waves, wave_size),
+        torch.zeros_like(wave_rows, dtype=nnz.dtype),
+    )
+    wave_order = wave_nnz.argsort(dim=2, descending=True, stable=True)
+    wave_rows = torch.gather(wave_rows, 2, wave_order)
+    valid = wave_rows < mb
+    return wave_rows[valid].view(h_count, mb).reshape(*leading, mb).contiguous()
+
+
+def _mask_rows_to_bitsets(mask_h):
+    """Pack one head's block mask rows into Python int bitsets for cheap union costs."""
+    mask_cpu = mask_h.detach().cpu().bool()
+    mb, nb = mask_cpu.shape
+    row_bits = []
+    for row in range(mb):
+        bits = 0
+        cols = torch.where(mask_cpu[row])[0].tolist()
+        for col in cols:
+            bits |= 1 << int(col)
+        row_bits.append(bits)
+    return row_bits, nb
+
+
+def _exact_path_order_for_wave_unions(wave_unions, wave_mean_nnz):
+    """Order waves by minimizing cold KV transitions between consecutive unions."""
+    n_waves = len(wave_unions)
+    if n_waves <= 2:
+        return list(range(n_waves))
+
+    full = 1 << n_waves
+    # Start from the densest wave; this preserves the existing "heavy rows early"
+    # scheduling bias while letting DP optimize the remaining transitions.
+    start = max(range(n_waves), key=lambda idx: (wave_mean_nnz[idx], -idx))
+    inf = 10**18
+    dp = [[inf] * n_waves for _ in range(full)]
+    parent = [[-1] * n_waves for _ in range(full)]
+    start_mask = 1 << start
+    dp[start_mask][start] = int(wave_unions[start].bit_count())
+
+    for state in range(full):
+        if not (state & start_mask):
+            continue
+        for last in range(n_waves):
+            cur_cost = dp[state][last]
+            if cur_cost >= inf:
+                continue
+            prev_union = wave_unions[last]
+            for nxt in range(n_waves):
+                if state & (1 << nxt):
+                    continue
+                cold_cost = int((wave_unions[nxt] & ~prev_union).bit_count())
+                new_state = state | (1 << nxt)
+                new_cost = cur_cost + cold_cost
+                if new_cost < dp[new_state][nxt]:
+                    dp[new_state][nxt] = new_cost
+                    parent[new_state][nxt] = last
+
+    state = full - 1
+    last = min(range(n_waves), key=lambda idx: dp[state][idx])
+    order = []
+    while last >= 0:
+        order.append(last)
+        prev = parent[state][last]
+        state &= ~(1 << last)
+        last = prev
+    order.reverse()
+    return order
+
+
+def auction_union_fast_reorder(
+    mask_float,
+    wave_size=132,
+    group_waves=8,
+    candidate_window=None,
+    select_chunk=4,
+    exact_path=False,
+):
+    """Patent-style host reorder using KV-union auction inside macro waves.
+
+    Compared with wave_union_fast's interval sort, this directly scores candidate
+    rows by how many new KV blocks they add to the current wave union. The masks
+    are tiny at block granularity (e.g. 80K/128 -> 640 rows), so Python int
+    bitsets keep this path suitable for offline/external metadata generation.
+    """
+    *leading, mb, nb = mask_float.shape
+    h_count = 1 if not leading else math.prod(leading)
+    mask = mask_float.reshape(h_count, mb, nb).bool()
+    device = mask_float.device
+    wave_size = max(1, int(wave_size))
+    group_waves = max(1, int(group_waves))
+    macro_size = wave_size * group_waves
+    candidate_window = int(candidate_window) if candidate_window else macro_size
+    candidate_window = max(wave_size, candidate_window)
+    select_chunk = max(1, int(select_chunk))
+
+    nnz = mask.sum(dim=2).detach().cpu()
+    out_heads = []
+    for head in range(h_count):
+        row_bits, _ = _mask_rows_to_bitsets(mask[head])
+        nnz_h = nnz[head].tolist()
+        sorted_rows = sorted(range(mb), key=lambda row: (-nnz_h[row], row))
+        used = [False] * mb
+        selected_rows = []
+
+        for macro_start in range(0, mb, macro_size):
+            macro_waves = []
+            macro_limit = min(mb, macro_start + macro_size)
+            active_waves = (macro_limit - macro_start + wave_size - 1) // wave_size
+            candidate_limit = min(mb, macro_start + candidate_window)
+
+            for wave_idx in range(active_waves):
+                rows_left = mb - len(selected_rows) - sum(len(wave) for wave in macro_waves)
+                target = min(wave_size, rows_left)
+                if target <= 0:
+                    break
+
+                wave = []
+                wave_union = 0
+
+                seed = None
+                for pos in range(macro_start, candidate_limit):
+                    row = sorted_rows[pos]
+                    if not used[row]:
+                        seed = row
+                        break
+                if seed is None:
+                    for row in sorted_rows:
+                        if not used[row]:
+                            seed = row
+                            break
+                if seed is None:
+                    break
+
+                used[seed] = True
+                wave.append(seed)
+                wave_union |= row_bits[seed]
+
+                while len(wave) < target:
+                    pool = []
+                    for pos in range(macro_start, candidate_limit):
+                        row = sorted_rows[pos]
+                        if not used[row]:
+                            # Lower added-union cost is better; NNZ desc and
+                            # original row id are stable tie breakers.
+                            added = int((row_bits[row] & ~wave_union).bit_count())
+                            pool.append((added, -nnz_h[row], row, pos))
+                    if not pool:
+                        for pos, row in enumerate(sorted_rows):
+                            if not used[row]:
+                                added = int((row_bits[row] & ~wave_union).bit_count())
+                                pool.append((added, -nnz_h[row], row, pos))
+                    if not pool:
+                        break
+
+                    pool.sort()
+                    take = min(select_chunk, target - len(wave), len(pool))
+                    for _, _, row, _ in pool[:take]:
+                        if used[row]:
+                            continue
+                        used[row] = True
+                        wave.append(row)
+                        wave_union |= row_bits[row]
+
+                wave.sort(key=lambda row: (-nnz_h[row], row))
+                macro_waves.append(wave)
+
+            if exact_path and len(macro_waves) > 1:
+                wave_unions = []
+                wave_mean_nnz = []
+                for wave in macro_waves:
+                    union = 0
+                    total = 0.0
+                    for row in wave:
+                        union |= row_bits[row]
+                        total += float(nnz_h[row])
+                    wave_unions.append(union)
+                    wave_mean_nnz.append(total / max(1, len(wave)))
+                wave_order = _exact_path_order_for_wave_unions(wave_unions, wave_mean_nnz)
+                macro_waves = [macro_waves[idx] for idx in wave_order]
+
+            for wave in macro_waves:
+                selected_rows.extend(wave)
+
+        if len(selected_rows) < mb:
+            selected_rows.extend(row for row in sorted_rows if not used[row])
+        selected_rows = selected_rows[:mb]
+        out_heads.append(torch.tensor(selected_rows, dtype=torch.long, device=device))
+
+    return torch.stack(out_heads, dim=0).reshape(*leading, mb).contiguous()
+
+
+def auction_union_exact_path_reorder(mask_float, wave_size=132):
+    return auction_union_fast_reorder(mask_float, wave_size=wave_size, exact_path=True)
+
+
 LOCAL_REORDER_REGISTRY = {
     "banded_union_wave": banded_union_wave_reorder,
     "banded_union_wave_w8": banded_union_w8_reorder,
     "banded_union_fast": banded_union_fast_reorder,
+    "wave_union_fast": wave_union_fast_reorder,
+    "auction_union_fast": auction_union_fast_reorder,
+    "auction_union_exact_path": auction_union_exact_path_reorder,
 }
 #---------- 小算子拼接 Attention ----------
 def build_dense_mask(mask_mod, seq_len, device, dtype):
@@ -1365,11 +1742,15 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                 n_blocks = len(perm)
                 block_size = 128
                 dev = q.device
+                reorder_plan = build_reorder_plan(
+                    perm,
+                    args.wave_size,
+                    getattr(reorder_args, "kv_order", "asc"),
+                    block_size=block_size,
+                )
 
-                perm_dev = perm.to(torch.int64).to(dev)
-                inv_perm_cpu = torch.empty(n_blocks, dtype=torch.int64)
-                inv_perm_cpu[perm.to(torch.int64).cpu()] = torch.arange(n_blocks, dtype=torch.int64)
-                inv_perm_dev = inv_perm_cpu.to(dev)
+                perm_dev = reorder_plan.q_perm.to(dev)
+                inv_perm_dev = reorder_plan.inv_perm.to(dev)
 
                 q_blocks = q.view(B, H, n_blocks, block_size, D)
                 perm_expanded = perm_dev.view(1, 1, n_blocks, 1, 1).expand(B, H, n_blocks, block_size, D)
@@ -1382,7 +1763,7 @@ def run_benchmark(args, score_mod=identity, mask_mod=causal_mask, optimizations=
                     full_idx_reordered = apply_kv_order_to_full_metadata(
                         full_idx_reordered,
                         full_num_reordered,
-                        getattr(reorder_args, "kv_order", "asc"),
+                        reorder_plan.kv_orientation,
                         args.wave_size,
                     )
                     kv_num_reordered, kv_idx_reordered = empty_partial_metadata(mask_reordered)
@@ -2020,7 +2401,7 @@ def parse_args():
                         help="Wave partition size for reorder algorithms (default: 132).")
     parser.add_argument(
         "--kv-order",
-        choices=["asc", "desc", "snake", "snake_inv", "boundary_dp", "edge_dp"],
+        choices=["asc", "desc", "snake", "snake_inv", "boundary_dp", "edge_dp", "union_boundary_dp"],
         default="asc",
         help="KV column order for external FULL_KV reorder path.",
     )

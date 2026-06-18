@@ -4,6 +4,7 @@ import contextlib
 import csv
 import heapq
 import io
+import itertools
 import json
 import math
 import re
@@ -45,6 +46,7 @@ ATTENTION_PATTERNS = (
     "matmul",
     "softmax",
 )
+_TOP_TIEBREAKER = itertools.count()
 
 
 @dataclass
@@ -313,7 +315,7 @@ def select_rows_for_scope(rows, start_keys, summary, group_key=None):
 def top_push(heap, item, limit):
     if limit <= 0:
         return
-    entry = (item.time_us, len(heap), item)
+    entry = (item.time_us, next(_TOP_TIEBREAKER), item)
     if len(heap) < limit:
         heapq.heappush(heap, entry)
     elif item.time_us > heap[0][0]:
